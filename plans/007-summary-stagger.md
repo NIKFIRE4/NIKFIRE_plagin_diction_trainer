@@ -1,6 +1,6 @@
 # 007 — Итог занятия: строки замеров входят по очереди
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: bfc29a5
 - **Severity**: LOW (missed opportunity — редкий момент, где разрешена сдержанная выразительность)
 - **Category**: Missed opportunities · Cohesion (stagger)

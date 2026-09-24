@@ -144,6 +144,8 @@ p{margin:0}
 .sec-foot .small{margin-left:auto}
 .sum-list{display:flex;flex-direction:column}
 .sum-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:8px 20px;align-items:center;padding:16px 0;border-top:1px solid var(--line-2)}
+.sum-row{transition:opacity 240ms var(--ease-out),transform 240ms var(--ease-out);transition-delay:calc(var(--i,0) * 60ms)}
+@starting-style{.sum-row{opacity:0;transform:translateY(6px)}}
 .sum-row:first-child{border-top:0}
 .sum-v{display:flex;flex-direction:column;gap:2px}
 .sum-v .val{font-family:var(--f-display);font-size:28px;font-weight:500;letter-spacing:-.02em;line-height:1.1}

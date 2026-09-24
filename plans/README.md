@@ -11,7 +11,7 @@
 | 004 | [Мягкий вход тоста](004-toast-entrance.md) | MEDIUM | DONE |
 | 005 | [Возврат шара темпа: ease-out](005-pacer-stop-easing.md) | LOW | DONE |
 | 006 | [Лампа эфира зажигается](006-on-air-ignition.md) | LOW | DONE |
-| 007 | [Итог занятия: строки по очереди](007-summary-stagger.md) | LOW | TODO |
+| 007 | [Итог занятия: строки по очереди](007-summary-stagger.md) | LOW | DONE |
 
 ## Порядок выполнения
 

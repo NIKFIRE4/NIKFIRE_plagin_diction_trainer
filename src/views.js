@@ -657,7 +657,7 @@ function viewSummary(v) {
       <p class="lead">${mins > 0 ? `${mins} мин · ` : ''}выполнено ${done} из ${items.length} пунктов плана.</p></div>
     <section class="panel stack summary">
       ${rows.length ? `<h2 class="h2">Что измерили сегодня</h2>
-      <div class="sum-list">${rows.map((r) => `<div class="sum-row"><div class="stack" style="gap:2px"><span class="h3">${r.x.s.title}</span><span class="small muted">${esc(r.x.s.what)}</span></div>
+      <div class="sum-list">${rows.map((r, i) => `<div class="sum-row" style="--i:${i}"><div class="stack" style="gap:2px"><span class="h3">${r.x.s.title}</span><span class="small muted">${esc(r.x.s.what)}</span></div>
         <div class="sum-v"><span class="val num">${fmt(r.v, r.x.s.dg)}<small>${r.x.s.unit}</small></span>${r.d == null ? '<span class="small muted">первый замер</span>' : `<span class="small ${r.better ? 'good' : 'muted'}"><span class="num">${r.d >= 0 ? '+' : '−'}${fmt(Math.abs(r.d), r.x.s.dg)}</span> к прошлому</span>`}</div>
         <div class="sum-goal small">${r.t == null || r.x.reached ? `хороший уровень ${skillGoalText(r.x.s)}` : `цель недели ${r.x.s.band ? '' : r.x.s.lower ? '≤ ' : '≥ '}<b class="num">${skillVal(r.x.s, r.t)}</b><br><span class="muted">хороший уровень ${skillGoalText(r.x.s)}</span>`}</div></div>`).join('')}</div>`
       : '<p>Сегодня без замеров — только тренировка. Цифры появятся в упражнениях с микрофоном.</p>'}
