@@ -31,6 +31,10 @@ const EXERCISES = [
     goal: 'Растянуть и выровнять выдох. Цель — 25+ секунд.',
     how: ['Глубокий вдох животом.', 'Тяните ровное «С-С-С» — не громко, одинаково от начала до конца.', 'Не выжимайте последний воздух с силой: закончился звук — закончилась попытка.', 'Сделайте 3 попытки. Тренажёр сам засечёт время.'],
     cfg: { sound: 'С', metric: 'sLen', target: 25 } },
+  { id: 'mpt', sec: 'breath', type: 'sustain', title: 'Время фонации на «А»', min: 2, mic: true,
+    goal: 'Главный замер дыхания: сколько секунд вы тянете голос на одном выдохе.',
+    how: ['Встаньте или сядьте прямо, глубокий вдох животом.', 'Тяните «А» на удобной высоте и громкости так долго, как можете — ровно, без напряжения.', 'Сделайте 2–3 попытки, в прогресс идёт каждая, лучшая — рекорд.'],
+    cfg: { sound: 'А', metric: 'mpt' } },
   { id: 'candle', sec: 'breath', type: 'candle', title: 'Свеча', min: 2, mic: true,
     goal: 'Ровный, управляемый выдох без толчков.',
     how: ['Представьте свечу в 20 см ото рта.', 'Вдох носом, затем дуйте на пламя так, чтобы оно наклонилось, но не погасло.', 'Держите поток одинаковым как можно дольше.', 'Пламя на экране реагирует на ваш выдох: дрожит — значит, поток неровный.'],
@@ -330,14 +334,42 @@ const NORMS = {
   basePitch: { unit: 'Гц', label: 'Удобная высота' },
 };
 
-/* ---------- ПЛАН ДНЯ ---------- */
-const PLAN_ROTATION = {
-  breath: ['diaphragm', 'long-s', 'candle', 'steps-f', 'count', 'strelnikova', 'long-s'],
-  artic: ['artic-full', 'artic-tongue', 'artic-full', 'artic-lips', 'artic-full', 'artic-tongue', 'artic-full'],
-  voice: ['trill', 'straw', 'hum', 'steps', 'straw', 'volume', 'chew'],
-  diction: ['twisters', 'syllables', 'twisters', 'cork', 'endings', 'twisters', 'hard-words'],
-  expr: ['stress', 'dialog', 'emotions', 'nofill', 'melody', 'pauses', 'dialog'],
-};
+/* ---------- ПРОГРАММА РАЗВИТИЯ ---------- */
+/* Шесть навыков, от которых строятся план дня и прогноз.
+   good  — «хороший уровень», цель программы; floor — уровень, от которого считается шкала (0%);
+   band  — вместо good: коридор нормы (темп);
+   rate  — типичный прирост за неделю, когда навык в фокусе (5 занятий в неделю по 15–20 минут):
+           время фонации ≈ +6 с за 4–6 недель упражнений (метаанализ Barsties v. Latoszek, 2023);
+           диапазон — несколько полутонов в месяц сирен и трелей; паразиты — минус 80% за 3–6 недель
+           тренировки осознанности (habit reversal, Göhring & Bördlein, 2025), т. е. около −25% в неделю;
+           разборчивость, мелодика и темп — по практике тренеров речи;
+   side  — доля темпа, когда навык не в фокусе (его всё равно задевают разминка и живая речь);
+   train — упражнения-тренировки, measure — упражнение, которое пишет метрику навыка;
+   trainLow — упражнения попроще, пока навык ниже 40% шкалы. */
+const SKILLS = [
+  { id: 'breath', title: 'Дыхание', metric: 'mpt', agg: 'max', unit: 'с', dg: 1, good: { m: 25, f: 20 }, floor: { m: 8, f: 6 }, rate: 1.2, side: 0.4,
+    what: 'Время фонации — сколько секунд голос звучит на одном выдохе', measure: 'mpt',
+    train: ['long-s', 'steps-f', 'strelnikova', 'candle', 'count', 'diaphragm'], trainLow: ['diaphragm', 'long-s', 'candle'] },
+  { id: 'voice', title: 'Голос', metric: 'range', agg: 'max', unit: 'пт', dg: 0, good: 24, floor: 10, rate: 1, side: 0.35,
+    what: 'Диапазон — от самой низкой до самой высокой ноты, в полутонах', measure: 'range',
+    train: ['straw', 'trill', 'steps', 'hum', 'support', 'chew'] },
+  { id: 'diction', title: 'Дикция', metric: 'acc', agg: 'avg', unit: '%', dg: 0, good: 92, floor: 55, rate: 3, side: 0.35,
+    what: 'Разборчивость — доля слов, которые распознавание услышало точно', measure: 'twisters',
+    train: ['cork', 'endings', 'hard-words', 'syllables'], trainLow: ['syllables', 'cork', 'hard-words'] },
+  { id: 'expr', title: 'Выразительность', metric: 'mono', agg: 'avg', unit: 'пт', dg: 1, good: 2.5, floor: 0.8, rate: 0.2, side: 0.3,
+    what: 'Мелодика — насколько живо голос меняет высоту (разброс в полутонах)', measure: 'melody',
+    train: ['stress', 'emotions', 'pauses'] },
+  { id: 'tempo', title: 'Темп', metric: 'wpm', agg: 'avg', unit: 'сл/мин', dg: 0, band: [115, 150], rate: 8, side: 0.4,
+    what: 'Слов в минуту: комфортно для слушателя 115–150', measure: 'tempo',
+    train: ['pauses', 'tempo'] },
+  { id: 'fluency', title: 'Чистота речи', metric: 'fillers', agg: 'avg', unit: 'в мин', dg: 1, good: 1, floor: 8, rate: 0.25, side: 0.5, lower: true,
+    what: 'Слова-паразиты в минуту живой речи', measure: 'nofill',
+    train: ['nofill', 'impro', 'dialog'] },
+];
+/* короткая разминка в начале занятия — по кругу */
+const WARMUPS = ['artic-tongue', 'diaphragm', 'artic-lips', 'trill', 'chew', 'artic-full', 'support'];
+/* финал занятия — перенос навыков в живую речь */
+const LIVE = ['impro', 'nofill', 'dialog'];
 
 /* ---------- ГОЛОСОВОЙ СОБЕСЕДНИК ---------- */
 const SCENARIOS = [

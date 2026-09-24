@@ -20,6 +20,7 @@ document.addEventListener('click', (e) => {
 /* ---------- навигация ---------- */
 const NAV = [
   { r: 'home', t: 'Сегодня', i: 'home' },
+  { r: 'program', t: 'Моя программа', i: 'target' },
   { r: 'diag', t: 'Диагностика', i: 'gauge' },
   { label: 'Тренировка' },
   ...SECTIONS.map((s) => ({ r: 'sec-' + s.id, t: s.title, i: s.icon })),
@@ -91,6 +92,7 @@ function render() {
   const r = App.route, v = view();
   let crumb = 'Звукоряд';
   if (r === 'home') { crumb = 'Сегодня'; viewHome(v); }
+  else if (r === 'program') { crumb = 'Моя программа'; viewProgram(v); }
   else if (r === 'diag') { crumb = 'Диагностика'; viewDiag(v); }
   else if (r === 'progress') { crumb = 'Прогресс'; viewProgress(v); }
   else if (r === 'method') { crumb = 'Методика'; viewMethod(v); }
@@ -411,51 +413,273 @@ function profileSummary() {
   if (L('mono') != null) parts.push(`Мелодика (разброс высоты): ${fmt(L('mono'))} пт.`);
   if (L('fillers') != null) parts.push(`Слова-паразиты: ${fmt(L('fillers'))} в минуту.`);
   parts.push(`Серия занятий: ${Store.streak()} дн., за неделю ${Store.weekMinutes()} мин.`);
+  const P = d.program;
+  if (P && P.focus && P.focus.length) parts.push(`Фокус программы на эту неделю: ${P.focus.map((id) => skillById(id).title).join(', ')}.`);
   return parts.join(' ');
 }
 
-/* ========== СЕГОДНЯ ========== */
+/* ========== ПРОГРАММА: уровень навыков, прогноз, план дня ========== */
+const WEEK = 7 * 864e5;
+const skillById = (id) => SKILLS.find((s) => s.id === id);
+const bySex = (x) => (x && typeof x === 'object' ? x[Store.d.settings.sex] : x);
+const skillVal = (s, v) => `${fmt(v, s.dg)} ${s.unit}`;
+const skillGoalText = (s) => (s.band ? `${s.band[0]}–${s.band[1]} ${s.unit}` : `${s.lower ? '≤ ' : ''}${fmt(bySex(s.good), s.dg)} ${s.unit}`);
+const ruDate = (t) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+const weeksT = (n) => `${n} ${plural(n, 'неделя', 'недели', 'недель')}`;
+/* уровень навыка: 0% — floor, 100% — хороший уровень; для темпа — расстояние до коридора нормы */
+function skillScore(s, v) {
+  if (v == null || !isFinite(v)) return null;
+  if (s.band) { const [lo, hi] = s.band; return clamp(100 - (v < lo ? lo - v : v > hi ? v - hi : 0) * 2.5, 0, 100); }
+  const g = bySex(s.good), f = bySex(s.floor);
+  return clamp(((v - f) / (g - f)) * 100, 0, 100);
+}
+const skillReached = (s, v) => skillScore(s, v) >= 99.5;
+/* неделя тренировки с темпом r (для паразитов r — в логарифмах: доля убывает в e^r раз) */
+function skillStep(s, v, r) {
+  if (s.band) { const [lo, hi] = s.band; return v < lo ? Math.min(lo, v + r) : v > hi ? Math.max(hi, v - r) : v; }
+  const g = bySex(s.good);
+  return s.lower ? Math.max(g, v * Math.exp(-r)) : Math.min(g, v + r);
+}
+const refRate = (s) => (s.lower ? -Math.log(1 - s.rate) : s.rate);
+function rateText(s, r) {
+  if (s.lower) return `−${Math.round((1 - Math.exp(-r)) * 100)}% в неделю`;
+  return s.band ? `${fmt(r, s.dg || 1)} ${s.unit} в неделю к норме` : `+${fmt(r, s.dg || 1)} ${s.unit} в неделю`;
+}
+/* текущее состояние навыка по замерам */
+function skillView(s) {
+  const pts = daily(s.metric, s.agg);
+  if (!pts.length) return { s, v: null, score: null, n: 0, eff: refRate(s), conf: 'none', reached: false };
+  const tail = pts.slice(-3), v = tail.reduce((a, p) => a + p.v, 0) / tail.length;
+  // личный темп — наклон дневных значений за 4 недели (нужно 3+ дня замеров на отрезке от 4 дней)
+  const rec = pts.filter((p) => p.t >= Date.now() - 4 * WEEK);
+  let trend = null;
+  if (rec.length >= 3 && rec[rec.length - 1].t - rec[0].t >= 4 * 864e5) {
+    const b = linfit(rec.map((p) => p.t / WEEK), rec.map((p) => (s.lower ? Math.log(Math.max(0.2, p.v)) : p.v))).b;
+    trend = b * (s.lower ? -1 : s.band && v > s.band[1] ? -1 : 1);
+  }
+  const ref = refRate(s);
+  const eff = trend == null ? ref : trend > 0 ? clamp(0.5 * ref + 0.5 * trend, 0.5 * ref, 2 * ref) : 0.75 * ref;
+  return { s, v, score: skillScore(s, v), n: pts.length, first: pts[0].v, firstT: pts[0].t, trend, eff, conf: trend == null ? 'typical' : trend > 0 ? 'personal' : 'stall', reached: skillReached(s, v) };
+}
+/* симуляция по неделям: два самых слабых навыка в фокусе идут полным темпом, остальные — долей side */
+function simulate(views, maxW = 52) {
+  const cur = views.filter((x) => x.v != null).map((x) => ({ x, val: x.v, eta: x.reached ? 0 : null }));
+  const rows = [];
+  for (let w = 1; w <= maxW && cur.some((c) => c.eta == null); w++) {
+    const open = cur.filter((c) => c.eta == null).sort((a, b) => skillScore(a.x.s, a.val) - skillScore(b.x.s, b.val));
+    const focus = new Set(open.slice(0, 2).map((c) => c.x.s.id));
+    cur.forEach((c) => { if (c.eta != null) return; c.val = skillStep(c.x.s, c.val, c.x.eff * (focus.has(c.x.s.id) ? 1 : c.x.s.side)); if (skillReached(c.x.s, c.val)) c.eta = w; });
+    rows.push({ w, vals: Object.fromEntries(cur.map((c) => [c.x.s.id, c.val])), focus });
+  }
+  const eta = Object.fromEntries(cur.map((c) => [c.x.s.id, c.eta]));
+  const all = cur.every((c) => c.eta != null);
+  return { rows, eta, weeks: all ? Math.max(0, ...cur.map((c) => c.eta)) : null };
+}
+/* последний контрольный замер = диагностика */
+function lastCheck() {
+  const days = Object.keys(Store.d.done).filter((k) => Store.d.done[k].includes('diag')).sort();
+  let t = days.length ? new Date(days[days.length - 1] + 'T12:00').getTime() : null;
+  if (t == null) { const h = Store.d.history.find((x) => /^Диагностика:/.test(x.text) && !/без замеров/.test(x.text)); if (h) t = h.t; }
+  const today = Store.doneToday('diag'), days_ = t == null ? null : Math.round((new Date().setHours(12, 0, 0, 0) - new Date(t).setHours(12, 0, 0, 0)) / 864e5);
+  return { t, days: days_, today, due: t == null || days_ >= 7 };
+}
+/* сколько дней в неделю реально занимаетесь (за последние 2 недели) */
+function trainingRhythm() {
+  const span = Math.min(14, Store.dayIndex() + 1); let n = 0; const d = new Date();
+  for (let i = 0; i < span; i++) { if (Store.d.days[dayKey(d)]) n++; d.setDate(d.getDate() - 1); }
+  return { perWeek: (n / span) * 7, span };
+}
+/* состояние программы; фокус пересчитывается раз в 7 дней, после контрольного замера или когда фокусный навык достиг цели */
+function program() {
+  const d = Store.d;
+  if (!d.program) d.program = { started: d.created, focus: [], focusAt: 0, base: {} };
+  const P = d.program, views = SKILLS.map(skillView), V = (id) => views.find((x) => x.s.id === id);
+  const measured = views.filter((x) => x.v != null);
+  const ord = [...measured].sort((a, b) => a.score - b.score), open = ord.filter((x) => !x.reached);
+  const need = !P.focus.length || Date.now() - P.focusAt >= WEEK || P.focus.some((id) => !V(id) || V(id).v == null || (V(id).reached && open.some((x) => !P.focus.includes(x.s.id))));
+  if (need && measured.length) {
+    P.focus = (open.length ? open : ord).slice(0, 2).map((x) => x.s.id);
+    P.focusAt = Date.now();
+    P.base = Object.fromEntries(measured.map((x) => [x.s.id, x.v]));
+    Store.save();
+  }
+  const sim = simulate(views);
+  const week = Math.floor((Date.now() - P.started) / WEEK) + 1;
+  /* цель недели: где навык должен оказаться к концу текущего недельного цикла */
+  const weekTarget = (x) => { if (x.v == null) return null; const base = P.base[x.s.id] ?? x.v; return skillStep(x.s, base, x.eff * (P.focus.includes(x.s.id) ? 1 : x.s.side)); };
+  return { P, views, V, measured, sim, week, chk: lastCheck(), weekTarget, focus: P.focus.filter((id) => V(id) && V(id).v != null) };
+}
+/* план дня: разминка → замер (если пора) → фокус → поддержка → живая речь */
+function buildPlan(pr) {
+  const di = Store.dayIndex(), items = [], used = new Set(), { V, chk, focus, weekTarget } = pr;
+  const yest = Store.d.done[dayKey(new Date(Date.now() - 864e5))] || [];
+  const add = (id, o) => { if (!id || used.has(id) || (id !== 'diag' && !exById(id))) return false; used.add(id); items.push({ id, ...o }); return true; };
+  const pick = (arr, k = 0) => {
+    const ord = arr.map((_, j) => arr[(di + k + j) % arr.length]).filter((id) => !used.has(id));
+    return ord.find((id) => !yest.includes(id)) || ord[0] || null;
+  };
+  const mins = () => items.reduce((a, it) => a + (it.id === 'diag' ? 4 : exById(it.id).min), 0);
+  const goalLine = (x) => { const t = weekTarget(x); return x.reached ? `Держите уровень: ${skillVal(x.s, x.v)} (цель ${skillGoalText(x.s)})` : `Цель недели: ${x.s.band ? '' : x.s.lower ? '≤ ' : '≥ '}${skillVal(x.s, t)} · сейчас ${skillVal(x.s, x.v)} · хороший уровень ${skillGoalText(x.s)}`; };
+  const pctT = (x) => `${Math.round(x.score)}% пути до хорошего уровня`;
+
+  add(pick(WARMUPS), { block: 'Разминка', why: 'Разогреть дыхание и артикуляцию перед основной работой' });
+  const checking = !chk.t || chk.due || chk.today;
+  if (!chk.t) {
+    add('diag', { block: 'Исходный замер', why: 'Без исходной точки нельзя посчитать уровень навыков и прогноз', goal: '5 замеров за 4 минуты: фонация, S/Z, диапазон, чтение, скороговорка' });
+    add('long-s', { block: 'Первая тренировка', skill: 'breath', why: 'Дыхание — опора для всего остального: с него начинают все школы сценической речи', goal: 'Три попытки ровного «С-С-С», хороший результат — от 20 секунд' });
+    add('twisters', { block: 'Первая тренировка', skill: 'diction', why: 'Распознавание покажет, какие звуки и слова у вас смазываются', goal: 'Этап «Медленно»: каждое слово должно подсветиться зелёным' });
+  }
+  else if (chk.due || chk.today) add('diag', { block: 'Контрольный замер недели', why: chk.today ? 'Замер сделан — фокус и прогноз пересчитаны' : `С прошлого замера прошло ${chk.days} ${plural(chk.days, 'день', 'дня', 'дней')} — пора сверить прогресс и пересчитать фокус`, goal: 'Те же 5 замеров — сравним с прошлой неделей' });
+
+  focus.forEach((id, i) => {
+    const x = V(id), s = x.s, pool = (x.score < 40 && s.trainLow) || s.train;
+    if (i === 0 || checking) add(pick(pool, i), { block: i ? 'Второй фокус' : 'Фокус недели', skill: id, why: `${s.title}: ${pctT(x)} — ${i ? 'вторая' : 'главная'} зона роста`, goal: checking ? goalLine(x) : '' });
+    if (!checking) add(s.measure, { block: 'Замер: ' + s.title.toLowerCase(), skill: id, why: 'Каждый замер в разные дни уточняет ваш личный темп и прогноз', goal: goalLine(x) });
+  });
+  // навыки без замеров: без них прогноз неполный (кроме чистоты речи — её меряет финал)
+  if (chk.t) { const miss = pr.views.find((x) => x.v == null && x.s.id !== 'fluency'); if (miss) add(miss.s.measure, { block: 'Первый замер', skill: miss.s.id, why: `${miss.s.title}: ещё нет замера — навык не попадает в прогноз`, goal: miss.s.what }); }
+  // поддержка — по кругу среди навыков вне фокуса
+  const rest = pr.views.filter((x) => x.v != null && !focus.includes(x.s.id));
+  if (rest.length && mins() <= 16) { const x = rest[di % rest.length]; add(pick(x.s.train, 1), { block: 'Поддержка', skill: x.s.id, why: `${x.s.title}: ${x.reached ? 'уже на хорошем уровне' : pctT(x)} — поддерживаем, чтобы не откатиться` }); }
+  // финал — живая речь
+  if (!items.some((it) => LIVE.includes(it.id))) {
+    const fl = V('fluency'), pool = LIVE.filter((id) => id !== 'dialog' || App.ai.state === 'ok');
+    add(fl.v == null ? 'nofill' : pick(pool, 2), { block: 'Живая речь', skill: 'fluency', why: fl.v == null ? 'Первый замер слов-паразитов — главного показателя живой речи' : 'Перенос в живую речь: навык освоен, когда работает без подготовки', goal: fl.v == null ? 'Говорите минуту на тему, вместо «ну» и «э-э» — пауза' : goalLine(fl) });
+  }
+  return items;
+}
 function todayPlan() {
-  const i = Store.dayIndex() % 7;
-  return [['breath', 'Дыхание'], ['artic', 'Артикуляция'], ['voice', 'Голос'], ['diction', 'Дикция'], ['expr', 'Выразительность']].map(([k, label]) => ({ label, ex: exById(PLAN_ROTATION[k][i]) }));
+  const pr = program(), k = dayKey();
+  let p = Store.d.plans && Store.d.plans[k];
+  if (!p || p.v !== 2 || p.focusAt !== pr.P.focusAt) { p = { v: 2, focusAt: pr.P.focusAt, items: buildPlan(pr) }; Store.d.plans = { [k]: p }; Store.save(); }
+  return { pr, items: p.items };
+}
+const planRoute = (it) => (it.id === 'diag' ? 'diag' : 'ex-' + it.id);
+const planTitle = (it) => (it.id === 'diag' ? (it.block === 'Исходный замер' ? 'Диагностика: исходная точка' : 'Контрольная диагностика') : exById(it.id).title);
+const planMin = (it) => (it.id === 'diag' ? 4 : exById(it.id).min);
+function skillBar(x) { return `<span class="sbar" title="${x.score == null ? 'нет замера' : Math.round(x.score) + '% пути до хорошего уровня'}"><i style="width:${x.score == null ? 0 : Math.max(3, x.score)}%" class="${x.score == null ? '' : x.reached ? 'good' : x.score < 40 ? 'low' : ''}"></i></span>`; }
+function etaText(pr, x) {
+  if (x.v == null) return 'нет замера';
+  if (x.reached) return 'достигнуто ✓';
+  const e = pr.sim.eta[x.s.id];
+  return e == null ? 'больше года' : `≈ ${weeksT(e)}`;
+}
+function forecastHead(pr) {
+  const n = pr.measured.length;
+  if (n < 3) return null;
+  const w = pr.sim.weeks, rh = trainingRhythm();
+  const miss = pr.views.filter((x) => x.v == null).map((x) => x.s.title.toLowerCase());
+  const slow = Store.dayIndex() >= 7 && rh.perWeek < 4.5 && w;
+  return { w, date: w ? ruDate(Date.now() + w * WEEK) : null, miss, slow, rh, altW: slow ? Math.ceil((w * 5) / Math.max(1, rh.perWeek)) : null };
+}
+function forecastCard(pr) {
+  const f = forecastHead(pr);
+  if (!f) return `<section class="panel stack fc"><span class="eyebrow">Прогноз</span><p>Прогноз появится, когда будут замеры хотя бы по трём навыкам. Быстрее всего — диагностика: 4 минуты.</p><div><button class="btn primary" data-go="diag">Пройти диагностику</button></div></section>`;
+  return `<section class="panel stack fc"><div class="row" style="justify-content:space-between"><span class="eyebrow">Прогноз · неделя ${pr.week}</span><button class="btn ghost" data-go="program" style="min-height:0;padding:2px 6px;color:var(--accent)">Вся программа →</button></div>
+    ${f.w === 0 ? '<div class="fc-big">Цели достигнуты</div><p class="small muted">Все измеренные навыки на хорошем уровне. Держите форму и повышайте сложность.</p>'
+      : f.w ? `<div class="fc-big">≈ ${weeksT(f.w)}</div><p class="small">до хорошего уровня по всем навыкам — <b>к ${f.date}</b>, если заниматься 5 дней в неделю.</p>`
+      : '<div class="fc-big">Больше года</div><p class="small">при нынешнем темпе. Регулярные занятия ускорят рост.</p>'}
+    ${f.slow ? `<p class="small warn-t">Сейчас вы занимаетесь ${fmt(f.rh.perWeek, 1)} ${plural(Math.round(f.rh.perWeek), 'день', 'дня', 'дней')} в неделю — в таком ритме ≈ ${weeksT(f.altW)}.</p>` : ''}
+    <div class="skills-mini">${pr.views.map((x) => `<div class="${pr.focus.includes(x.s.id) ? 'focus' : ''}"><span class="n">${x.s.title}</span>${skillBar(x)}<span class="e">${etaText(pr, x)}</span></div>`).join('')}</div>
+    ${f.miss.length ? `<p class="small muted">Без замера: ${f.miss.join(', ')} — они есть в плане.</p>` : ''}</section>`;
 }
 function viewHome(v) {
-  const plan = todayPlan(), mins = plan.reduce((a, p) => a + p.ex.min, 0), done = plan.filter((p) => Store.doneToday(p.ex.id)).length;
-  const d = new Date(), wd = d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
-  const hasDiag = Store.last('mpt') != null || Store.last('wpm') != null;
-  const tile = (k, label, unit, dg = 1) => {
-    const pts = daily(k, k === 'fillers' ? 'min' : 'max'), last = Store.last(k);
-    return `<div class="stat"><span class="k">${label}</span><span class="v">${last == null ? '—' : fmt(last, dg)}<small>${last == null ? '' : unit}</small></span>${spark(pts.slice(-14)) || `<span class="d">${last == null ? 'нет замеров' : 'первый замер'}</span>`}</div>`;
-  };
+  const { pr, items } = todayPlan();
+  const mins = items.reduce((a, it) => a + planMin(it), 0), done = items.filter((it) => Store.doneToday(it.id)).length;
+  const wd = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  const fT = pr.focus.map((id) => skillById(id).title.toLowerCase()).join(' и ');
   v.innerHTML = `
     ${micNotice()}
-    <div class="sec-head"><span class="eyebrow">${esc(wd)}</span><h1 class="h1">Тренировка на сегодня</h1>
-      <p class="lead">${mins} минут: от дыхания к живой речи. Каждый день набор упражнений меняется, чтобы работали все мышцы речевого аппарата.</p></div>
+    <div class="sec-head"><span class="eyebrow">${esc(wd)} · неделя ${pr.week} программы</span><h1 class="h1">Тренировка на сегодня</h1>
+      <p class="lead">${mins} минут. ${fT ? `Фокус недели — ${fT}: план собран по вашим замерам и меняется вместе с ними.` : 'Сначала — исходный замер: по нему план подстроится под ваши слабые места.'}</p></div>
     <div class="hero">
       <section class="panel lift plan">
-        <div class="row" style="justify-content:space-between"><h2 class="h2">План дня</h2><span class="small muted num">${done} из ${plan.length}</span></div>
-        <ol class="plan-list">${plan.map((p) => `<li class="plan-item ${Store.doneToday(p.ex.id) ? 'done' : ''}"><span class="check"></span><div><div class="t">${esc(p.ex.title)}</div><div class="s">${p.label} · ${p.ex.min} мин${p.ex.mic ? ' · микрофон' : ''}</div></div><button class="open" data-go="ex-${p.ex.id}">Открыть</button></li>`).join('')}</ol>
-        <div class="row"><button class="btn primary big" id="startSession">${ico('play')}${done === plan.length ? 'Повторить занятие' : done ? 'Продолжить занятие' : 'Начать занятие'}</button>${done === plan.length ? '<span class="verdict good">План на сегодня выполнен</span>' : ''}</div>
+        <div class="row" style="justify-content:space-between"><h2 class="h2">План дня</h2><span class="small muted num">${done} из ${items.length}</span></div>
+        <ol class="plan-list">${items.map((it) => { const ex = exById(it.id); return `<li class="plan-item ${Store.doneToday(it.id) ? 'done' : ''}"><span class="check"></span><div><div class="t">${esc(planTitle(it))}</div><div class="s">${esc(it.block)} · ${planMin(it)} мин${it.id === 'diag' || (ex && ex.mic) ? ' · микрофон' : ''}</div>${it.why ? `<div class="why">${esc(it.why)}</div>` : ''}${it.goal ? `<div class="goal">${esc(it.goal)}</div>` : ''}</div><button class="open" data-go="${planRoute(it)}">Открыть</button></li>`; }).join('')}</ol>
+        <div class="row"><button class="btn primary big" id="startSession">${ico('play')}${done === items.length ? 'Повторить занятие' : done ? 'Продолжить занятие' : 'Начать занятие'}</button>${done === items.length ? '<span class="verdict good">План на сегодня выполнен</span>' : ''}<button class="btn ghost" id="replan" style="margin-left:auto" title="Собрать план заново по свежим замерам">Пересобрать</button></div>
       </section>
       <section class="stack">
+        ${forecastCard(pr)}
         <div class="stats">
-          <div class="stat"><span class="k">Серия</span><span class="v">${Store.streak()}<small>${plural(Store.streak(), 'день', 'дня', 'дней')}</small></span><span class="d">занимайтесь каждый день</span></div>
-          <div class="stat"><span class="k">За 7 дней</span><span class="v">${Store.weekMinutes()}<small>мин</small></span><span class="d">цель — 70+ минут</span></div>
-          ${tile('mpt', 'Время фонации', 'с')}
-          ${tile('acc', 'Разборчивость', '%', 0)}
+          <div class="stat"><span class="k">Серия</span><span class="v">${Store.streak()}<small>${plural(Store.streak(), 'день', 'дня', 'дней')}</small></span><span class="d">занимайтесь 5+ дней в неделю</span></div>
+          <div class="stat"><span class="k">За 7 дней</span><span class="v">${Store.weekMinutes()}<small>мин</small></span><span class="d">цель — 75+ минут</span></div>
         </div>
         <div class="panel"><div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="eyebrow">Активность</span><span class="small muted">12 недель</span></div>${heatmap()}</div>
       </section>
     </div>
-    ${hasDiag ? '' : `<div class="notice info"><div style="flex:1"><b>Начните с диагностики.</b> Три минуты: время фонации, индекс S/Z, диапазон, темп и чёткость. Так вы увидите исходную точку и рост.</div><button class="btn primary" data-go="diag">Пройти</button></div>`}
     <section class="stack"><h2 class="h2">Разделы</h2>
       <div class="grid3">${SECTIONS.map((s) => `<button class="panel ex-row" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;border:1px solid var(--line)" data-go="sec-${s.id}"><span class="t">${s.title}</span><span class="g">${esc(s.lead)}</span><span class="small muted">${EXERCISES.filter((e) => e.sec === s.id).length} упражнений</span></button>`).join('')}</div>
     </section>`;
   $('#startSession').onclick = () => {
-    const items = plan.map((p) => p.ex.id); const first = items.findIndex((id) => !Store.doneToday(id));
-    App.session = { items, idx: first < 0 ? 0 : first };
-    go('ex-' + items[App.session.idx]);
+    const routes = items.map(planRoute), first = items.findIndex((it) => !Store.doneToday(it.id));
+    App.session = { items: routes, idx: first < 0 ? 0 : first };
+    go(routes[App.session.idx]);
   };
+  $('#replan').onclick = () => { delete Store.d.plans[dayKey()]; Store.save(); go('home'); toast('План пересобран по свежим замерам'); };
+}
+/* ---------- занятие по плану: переход к следующему пункту ---------- */
+function sessionNext(skip) {
+  if (!App.session) return go('home');
+  App.session.idx++;
+  if (App.session.idx >= App.session.items.length) { App.session = null; if (!skip) toast('Занятие завершено. Отличная работа!'); go('home'); }
+  else go(App.session.items[App.session.idx]);
+}
+
+/* ========== МОЯ ПРОГРАММА ========== */
+function viewProgram(v) {
+  const pr = program(), f = forecastHead(pr), s0 = Store.d.settings;
+  const rows = pr.sim.rows, openIds = pr.views.filter((x) => x.v != null && !x.reached).map((x) => x.s.id);
+  const shown = rows.slice(0, 12);
+  const confT = (x) => x.conf === 'personal' ? `ваш темп: ${rateText(x.s, x.trend)}` : x.conf === 'stall' ? 'по замерам роста пока нет — прогноз осторожный' : x.v == null ? '' : `типичный темп; ваш — после 3 дней замеров`;
+  const sz = Store.last('sz');
+  v.innerHTML = `<div class="sec-head"><span class="eyebrow">Неделя ${pr.week}${pr.focus.length ? ' · фокус: ' + pr.focus.map((id) => skillById(id).title.toLowerCase()).join(' и ') : ''}</span><h1 class="h1">Моя программа</h1>
+      <p class="lead">Шесть навыков, у каждого — измеримый показатель и цель «хороший уровень». План дня тренирует самые слабые, раз в неделю контрольный замер пересчитывает фокус и прогноз.</p></div>
+    ${sz > 1.4 ? `<div class="notice bad"><div style="flex:1"><b>Индекс S/Z — ${fmt(sz, 2)}.</b> Выше 1,4 бывает, когда связки смыкаются неплотно. Если есть осиплость дольше двух недель — покажитесь фониатру. До этого не форсируйте громкость.</div></div>` : ''}
+    <section class="panel lift stack">
+      <div class="fc-row"><div class="stack" style="gap:4px">
+        <span class="eyebrow">Когда будет хороший уровень</span>
+        ${!f ? '<div class="fc-big">Нужны замеры</div><p class="small">Пройдите диагностику — по ней посчитаю уровень каждого навыка и срок.</p>'
+          : f.w === 0 ? '<div class="fc-big">Цели достигнуты</div><p class="small">Все измеренные навыки на хорошем уровне.</p>'
+          : f.w ? `<div class="fc-big">≈ ${weeksT(f.w)} · к ${f.date}</div><p class="small">При 5 занятиях в неделю по 15–20 минут.${f.slow ? ` В нынешнем ритме (${fmt(f.rh.perWeek, 1)} дн. в неделю) — ≈ ${weeksT(f.altW)}.` : ''}</p>`
+          : '<div class="fc-big">Больше года</div><p class="small">по нынешним замерам.</p>'}
+        ${f && f.miss.length ? `<p class="small muted">Пока без замера: ${f.miss.join(', ')} — срок уточнится.</p>` : ''}</div>
+        <div class="row" style="align-self:center"><button class="btn primary" data-go="diag">${pr.chk.t ? 'Контрольный замер' : 'Пройти диагностику'}</button><button class="btn" id="pAiGo">Разбор ИИ-коуча</button></div></div>
+      <p class="small muted">${pr.chk.t ? `Последний контрольный замер: ${pr.chk.days === 0 ? 'сегодня' : pr.chk.days + ' ' + plural(pr.chk.days, 'день', 'дня', 'дней') + ' назад'}${pr.chk.due ? ' — пора повторить' : ` · следующий через ${7 - pr.chk.days} ${plural(7 - pr.chk.days, 'день', 'дня', 'дней')}`}.` : 'Контрольных замеров ещё не было.'}</p>
+      <div id="pAi"></div></section>
+    <section class="panel stack"><h2 class="h2">Навыки</h2>
+      <div class="skills">${pr.views.map((x) => `<div class="skill ${pr.focus.includes(x.s.id) ? 'focus' : ''}">
+        <div class="stack" style="gap:2px"><span class="h3">${x.s.title}${pr.focus.includes(x.s.id) ? ' <span class="tag ai">фокус недели</span>' : ''}</span><span class="small muted">${esc(x.s.what)}</span></div>
+        <div class="vals num">${x.v == null ? '<span class="muted">—</span>' : `${x.n > 1 ? `<span class="muted">${fmt(x.first, x.s.dg)} →</span> ` : ''}<b>${fmt(x.v, x.s.dg)}</b>`} <span class="small muted">/ ${skillGoalText(x.s)}</span></div>
+        <div class="stack" style="gap:4px">${skillBar(x)}<span class="small muted">${x.v == null ? '' : Math.round(x.score) + '% · '}${esc(confT(x))}</span></div>
+        <div class="eta">${x.v == null ? `<button class="btn" data-go="ex-${x.s.measure}">Замерить</button>` : `<b>${etaText(pr, x)}</b>${!x.reached && pr.sim.eta[x.s.id] ? `<span class="small muted">к ${ruDate(Date.now() + pr.sim.eta[x.s.id] * WEEK)}</span>` : ''}`}</div></div>`).join('')}</div>
+      <p class="small muted">Текущее значение — среднее по трём последним дням замеров, так случайная удачная или неудачная попытка не сбивает план. Шкала: 0% — начальный уровень, 100% — хороший.</p></section>
+    ${shown.length && openIds.length ? `<section class="panel stack"><h2 class="h2">Дорожная карта по неделям</h2><p class="small muted">Ожидаемые значения к концу каждой недели. Жирным — навыки в фокусе этой недели, зелёным — достигнутая цель.</p>
+      <div class="road-wrap"><table class="road"><thead><tr><th>Неделя</th><th>К дате</th>${openIds.map((id) => `<th>${skillById(id).title}<br><span class="muted">${skillGoalText(skillById(id))}</span></th>`).join('')}</tr></thead><tbody>
+        <tr class="now"><td>сейчас</td><td>${ruDate(Date.now())}</td>${openIds.map((id) => `<td>${fmt(pr.V(id).v, skillById(id).dg)}</td>`).join('')}</tr>
+        ${shown.map((r) => `<tr><td>${r.w}</td><td>${ruDate(Date.now() + r.w * WEEK)}</td>${openIds.map((id) => { const s = skillById(id), ok = skillReached(s, r.vals[id]); return `<td class="${ok ? 'ok' : ''} ${r.focus.has(id) ? 'fo' : ''}">${fmt(r.vals[id], s.dg)}${ok ? ' ✓' : ''}</td>`; }).join('')}</tr>`).join('')}
+      </tbody></table></div>${rows.length > shown.length ? `<p class="small muted">…и ещё ${rows.length - shown.length} ${plural(rows.length - shown.length, 'неделя', 'недели', 'недель')}.</p>` : ''}</section>` : ''}
+    <section class="panel stack"><h2 class="h2">Как устроена система</h2>
+      <ol class="sys">
+        <li><b>Исходная точка.</b> Диагностика за 4 минуты даёт показатель по каждому навыку. Уровень считается в процентах пути от начального до хорошего.</li>
+        <li><b>Фокус недели — два самых слабых навыка.</b> На них уходит больше половины занятия. Так делают программы Speeko и логопеды: сначала то, что сильнее всего мешает.</li>
+        <li><b>Занятие 15–20 минут:</b> разминка → тренировка фокуса → замер с целью недели → поддержка остальных навыков → живая речь. Упражнения меняются по кругу и не повторяют вчерашние.</li>
+        <li><b>Контрольный замер раз в 7 дней.</b> Фокус, цели недели и прогноз пересчитываются. Навык достиг цели — он уходит в поддержку, в фокус встаёт следующий.</li>
+        <li><b>Прогноз = разрыв до цели ÷ темп роста.</b> Пока замеров мало, темп берётся типичный — по исследованиям и практике тренеров. С трёх дней замеров навыка темп считается по вашему графику. Нет роста две недели — прогноз становится осторожнее, а навык остаётся в фокусе.</li>
+      </ol></section>
+    <section class="panel stack"><h2 class="h2">Цели и типичный темп</h2>
+      <div class="road-wrap"><table class="hist"><tbody>${SKILLS.map((s) => `<tr><td style="font-family:var(--f-body);color:var(--ink)">${s.title}</td><td style="text-align:left;font-family:var(--f-body)">${esc(s.what)}</td><td>${skillGoalText(s)}</td><td>${rateText(s, refRate(s))}</td></tr>`).join('')}</tbody></table></div>
+      <p class="small muted">Цели — «хороший уровень» для взрослого, а не рекорды. Нормы времени фонации зависят от пола (сейчас: ${s0.sex === 'f' ? 'женский' : 'мужской'}, меняется в Настройках). Это ориентиры для самостоятельных тренировок, не медицинская диагностика.</p>
+      <ul class="small" style="margin:0;padding-left:18px;color:var(--ink-2);display:flex;flex-direction:column;gap:4px">
+        <li><a href="https://onlinelibrary.wiley.com/doi/10.1111/coa.14019" target="_blank" rel="noopener">Время фонации как маркер эффективности голосовой терапии: сетевой метаанализ (Clinical Otolaryngology, 2023)</a> — в среднем +6 с после курса упражнений</li>
+        <li><a href="https://pubmed.ncbi.nlm.nih.gov/37105793/" target="_blank" rel="noopener">Цель по времени фонации и эффективность Vocal Function Exercises (PubMed)</a> — рост за 6 недель; с явной целью результат лучше</li>
+        <li><a href="https://journals.sagepub.com/doi/10.1177/10497315241301372" target="_blank" rel="noopener">Brief Habit Reversal против слов-паразитов (2025)</a> — у 6 из 9 участников −80% за 2,5–6 недель</li>
+        <li><a href="https://journals.physiology.org/doi/full/10.1152/advan.00110.2022" target="_blank" rel="noopener">Слова-паразиты в научной речи (Advances in Physiology Education)</a> — осознанность, обратная связь, паузы вместо «э-э»</li>
+        <li><a href="https://yoodli.ai/blog/orai-vs-speeko-what-to-know" target="_blank" rel="noopener">Orai и Speeko</a> — метрики темпа, паразитов и мелодики, персональные рекомендации по слабым местам</li></ul></section>`;
+  $('#pAiGo').onclick = () => aiFeedback($('#pAi'), { title: 'Разбор программы', prompt: `Это не одна попытка, а обзор программы развития речи ученика (неделя ${pr.week}).
+Навыки (текущее значение / цель / уровень / прогноз):
+${pr.views.map((x) => `- ${x.s.title} (${x.s.what}): ${x.v == null ? 'нет замера' : `${skillVal(x.s, x.v)}, первый замер ${skillVal(x.s, x.first)}, цель ${skillGoalText(x.s)}, ${Math.round(x.score)}%, ${etaText(pr, x)}${x.conf === 'personal' ? ', личный темп ' + rateText(x.s, x.trend) : x.conf === 'stall' ? ', роста по замерам нет' : ''}`}`).join('\n')}
+Фокус недели: ${pr.focus.map((id) => skillById(id).title).join(', ') || 'нет'}. Занятий в неделю: ${fmt(trainingRhythm().perWeek, 1)}.
+Дай по-русски без markdown-заголовков, до 220 слов: 1) что растёт и что буксует; 2) почему буксующий навык может не расти и что поменять в технике; 3) один конкретный совет на эту неделю для каждого фокусного навыка; 4) реалистичен ли срок и что его сократит.` });
 }
 function heatmap() {
   const days = 84, d = new Date(); d.setDate(d.getDate() - days + 1);
@@ -493,7 +717,7 @@ function viewSection(v, s) {
 /* ========== УПРАЖНЕНИЕ ========== */
 function viewExercise(v, ex) {
   const s = SECTIONS.find((x) => x.id === ex.sec);
-  const inSession = App.session && App.session.items[App.session.idx] === ex.id;
+  const inSession = App.session && App.session.items[App.session.idx] === 'ex-' + ex.id;
   const sessBar = inSession ? `<div class="sessionbar"><span>Занятие · ${App.session.idx + 1} из ${App.session.items.length}</span><span class="bar"><i style="width:${(App.session.idx / App.session.items.length) * 100}%"></i></span><button id="sSkip">Пропустить</button><button id="sEnd">Завершить</button></div>` : '';
   v.innerHTML = `${sessBar}
     <div class="ex-top"><button class="back" data-go="${s ? 'sec-' + s.id : 'home'}">${ico('prev').replace('<svg', '<svg width="14" height="14" style="stroke:currentColor;fill:none;stroke-width:2"')} ${s ? s.title : 'Сегодня'}</button>
@@ -508,11 +732,7 @@ function viewExercise(v, ex) {
     mark() { if (!marked) { Store.complete(ex.id, ex.min); marked = true; renderNav(); const n = $('#doneNote'); if (n) n.innerHTML = `<span class="verdict good">✓ Засчитано в план дня · +${ex.min} мин</span>`; } },
     next() {
       ctx.mark();
-      if (inSession) {
-        App.session.idx++;
-        if (App.session.idx >= App.session.items.length) { App.session = null; toast('Занятие завершено. Отличная работа!'); go('home'); }
-        else go('ex-' + App.session.items[App.session.idx]);
-      }
+      if (inSession) sessionNext();
     },
   };
   if (Store.doneToday(ex.id)) { const n = $('#doneNote'); if (n) n.textContent = 'Сегодня уже выполнено'; }
@@ -521,7 +741,7 @@ function viewExercise(v, ex) {
   onLeave(() => { if (touched && (performance.now() - enterT) / 1000 >= Math.min(90, ex.min * 30)) ctx.mark(); });
   const db = $('#doneBtn'); if (db) db.onclick = () => { ctx.mark(); if (inSession) ctx.next(); else { db.textContent = 'Выполнено ✓'; db.disabled = true; } };
   if (inSession) {
-    $('#sSkip').onclick = () => { App.session.idx++; if (App.session.idx >= App.session.items.length) { App.session = null; go('home'); } else go('ex-' + App.session.items[App.session.idx]); };
+    $('#sSkip').onclick = () => sessionNext(true);
     $('#sEnd').onclick = () => { App.session = null; go('home'); };
   }
   (W[ex.type] || (() => {}))($('#stage'), ex, ctx);
@@ -1961,16 +2181,19 @@ function viewDiag(v) {
     const order = { bad: 0, warn: 1, good: 2 };
     minus.sort((a, b) => order[a.cls] - order[b.cls]);
     Store.hist(`Диагностика: ${cards.map((r) => r.k + ' ' + r.v + (r.u ? ' ' + r.u : '')).join(', ') || 'без замеров'}`);
+    if (cards.length) { Store.complete('diag', 4); if (Store.d.program) Store.d.program.focusAt = 0; Store.save(); renderNav(); }
+    const inSession = App.session && App.session.items[App.session.idx] === 'diag';
     const focus = minus.slice(0, 3);
     $('#dstage').innerHTML = `<section class="panel lift stack"><h2 class="h2">Итоги</h2>
       ${cards.length ? `<div class="split"><div class="plus"><h3>Сильные стороны</h3>${plus.length ? `<ul>${plus.map((c) => `<li>${esc(c.short)}</li>`).join('')}</ul>` : '<span class="small muted">Появятся по мере тренировок.</span>'}</div>
         <div class="minus"><h3>Зоны роста</h3>${minus.length ? `<ul>${minus.map((c) => `<li>${esc(c.short)}</li>`).join('')}</ul>` : '<span class="small muted">Всё в норме — держите форму.</span>'}</div></div>
-        ${focus.length ? `<div class="notice info"><div style="flex:1"><b>Фокус на ближайшие 2 недели:</b> ${focus.map((c) => `<button class="btn ghost" data-go="${c.link}" style="min-height:0;padding:0 4px;color:var(--accent)">${c.linkT}</button>`).join(' · ')}. Остальное — в обычном плане дня.</div></div>` : ''}` : '<p class="muted">Замеров нет — все шаги пропущены.</p>'}
+        ${focus.length ? `<div class="notice info"><div style="flex:1"><b>Главные зоны роста:</b> ${focus.map((c) => `<button class="btn ghost" data-go="${c.link}" style="min-height:0;padding:0 4px;color:var(--accent)">${c.linkT}</button>`).join(' · ')}. План дня и прогноз уже пересчитаны под эти замеры.</div></div>` : ''}` : '<p class="muted">Замеров нет — все шаги пропущены.</p>'}
       ${skipped.length ? `<p class="small muted">Не измерено: ${skipped.join(', ')}. Можно пройти диагностику заново в любой момент.</p>` : ''}
-      <div class="row"><button class="btn primary" data-go="home">К плану на сегодня</button><button class="btn" data-go="diag">Пройти заново</button></div>
+      <div class="row">${inSession ? '<button class="btn primary" id="dcont">Дальше по плану</button>' : '<button class="btn primary" data-go="program">Моя программа и прогноз</button><button class="btn" data-go="home">К плану на сегодня</button>'}<button class="btn" data-go="diag">Пройти заново</button></div>
       <div id="daiOut"></div></section>
       ${cards.length ? `<section class="panel stack"><h2 class="h2">Подробно по каждому показателю</h2><div>${cards.map((c) => `<div class="mcard"><div class="stack" style="gap:6px"><span class="small muted">${c.k}</span><span class="val">${c.v}<small>${c.u}</small></span><span class="verdict ${c.cls}" style="align-self:flex-start">${c.verdict}</span></div>
         <div class="txt"><div>${c.what}</div>${c.scale || ''}${c.todo ? `<div><b>Что делать:</b> ${c.todo} <button class="btn ghost" data-go="${c.link}" style="min-height:0;padding:0 4px;font-size:13px;color:var(--accent)">${c.linkT} →</button></div>` : ''}</div></div>`).join('')}</div></section>` : ''}`;
+    const dc = $('#dcont'); if (dc) dc.onclick = () => sessionNext();
     if (cards.length) aiFeedback($('#daiOut'), { title: 'Разбор диагностики', prompt: `Это не одна попытка, а итог диагностики. Результаты диагностики пользователя (${sex === 'f' ? 'женщина' : 'мужчина'}):
 ${cards.map((r) => `- ${r.k}: ${r.v} ${r.u} (${r.verdict})`).join('\n')}
 ${(res.readIssues || []).length ? 'Слова с потерями при чтении: ' + res.readIssues.slice(0, 8).map((x) => x.word + (x.heard ? '→' + x.heard : '')).join(', ') : ''}
@@ -2155,12 +2378,12 @@ function viewMethod(v) {
   const analogs = [
     ['Orai', 'Запись речи и метрики: паразиты, темп, энергия, ясность. → Здесь: разбор импровизации, темп и паразиты.'],
     ['Yoodli', 'ИИ-разбор выступлений, ролевые сценарии. → Здесь: разбор речи и ИИ-коуч с учётом ваших замеров.'],
-    ['Speeko', 'Структурированная программа уроков, темп и тон. → Здесь: ежедневный план с ротацией упражнений.'],
+    ['Speeko', 'Структурированная программа уроков, темп и тон, рекомендации по слабым местам. → Здесь: «Моя программа» — фокус на слабых навыках, цели недели и прогноз.'],
     ['Vocal Image', 'Голосовые упражнения и оценка голоса. → Здесь: график высоты, диапазон, трели, сирены.'],
     ['ELSA / BoldVoice', 'Проверка произношения по звукам. → Здесь: проверка скороговорок распознаванием с подсветкой слов.'],
     ['Articulated', 'Короткие ежедневные дриллы и серии. → Здесь: серия дней, тепловая карта, «Минута без паразитов».'],
   ];
-  v.innerHTML = `<div class="sec-head"><span class="eyebrow">На чём построен тренажёр</span><h1 class="h1">Методика</h1><p class="lead">Ежедневное занятие идёт в порядке, принятом в сценической речи: дыхание → артикуляция → голос → дикция → выразительность. 15–20 минут в день дают заметный результат за 3–4 недели.</p></div>
+  v.innerHTML = `<div class="sec-head"><span class="eyebrow">На чём построен тренажёр</span><h1 class="h1">Методика</h1><p class="lead">Ежедневное занятие собирается по вашим замерам: разминка → два самых слабых навыка (тренировка и замер) → поддержка остальных → живая речь. 15–20 минут в день дают заметный результат за 3–4 недели, срок до хорошего уровня — в «Моей программе».</p></div>
     <section class="panel"><dl style="margin:0">${methods.map(([t, d, r]) => `<div class="method"><dt>${t}</dt><dd>${d} <button class="btn ghost" data-go="${r}" style="min-height:0;padding:0 4px;font-size:13px;color:var(--accent)">Открыть →</button></dd></div>`).join('')}</dl></section>
     <section class="stack"><h2 class="h2">Что взято у аналогов</h2><div class="analog">${analogs.map(([n, d]) => `<div><b>${n}</b>${d}</div>`).join('')}</div></section>
     <section class="panel stack"><h2 class="h2">Ориентиры</h2>

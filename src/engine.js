@@ -21,7 +21,7 @@ const st = (hz, ref) => 12 * Math.log2(hz / ref);
 /* ---------- Хранилище (в браузере этого пользователя) ---------- */
 const Store = (() => {
   const KEY = 'zvukoryad.v1';
-  const blank = () => ({ v: 1, created: Date.now(), days: {}, done: {}, metrics: {}, best: {}, history: [], custom: [], settings: { sex: 'm', tts: false, basePitch: null } });
+  const blank = () => ({ v: 1, created: Date.now(), days: {}, done: {}, metrics: {}, best: {}, history: [], custom: [], program: null, plans: {}, settings: { sex: 'm', tts: false, basePitch: null } });
   let data = blank();
   try { const raw = localStorage.getItem(KEY); if (raw) data = Object.assign(blank(), JSON.parse(raw)); } catch (e) { /* хранилище недоступно */ }
   data.settings = Object.assign(blank().settings, data.settings || {});
@@ -412,6 +412,7 @@ const ICONS = {
   next: '<path d="M9 5l7 7-7 7"/>', prev: '<path d="M15 5l-7 7 7 7"/>',
   shuffle: '<path d="M4 7h3c5 0 5 10 10 10h3M4 17h3c2 0 3-1.5 4-3M14 9c1-1.3 2-2 3-2h3M18 4l3 3-3 3M18 14l3 3-3 3"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
 };
 const ico = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
