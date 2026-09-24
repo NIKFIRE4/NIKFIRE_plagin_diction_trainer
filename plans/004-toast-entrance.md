@@ -1,6 +1,6 @@
 # 004 — Мягкий вход тоста
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: bfc29a5
 - **Severity**: MEDIUM
 - **Category**: Missed opportunity · Easing & duration

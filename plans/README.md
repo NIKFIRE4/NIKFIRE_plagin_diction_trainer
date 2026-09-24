@@ -8,7 +8,7 @@
 | 001 | [Токены движения и тактильное нажатие](001-motion-tokens-and-press.md) | LOW | DONE |
 | 002 | [Живые индикаторы уровня на `transform`](002-live-meters-on-transform.md) | MEDIUM | DONE |
 | 003 | [Бережный `prefers-reduced-motion`](003-gentle-reduced-motion.md) | MEDIUM | DONE |
-| 004 | [Мягкий вход тоста](004-toast-entrance.md) | MEDIUM | TODO |
+| 004 | [Мягкий вход тоста](004-toast-entrance.md) | MEDIUM | DONE |
 | 005 | [Возврат шара темпа: ease-out](005-pacer-stop-easing.md) | LOW | TODO |
 | 006 | [Лампа эфира зажигается](006-on-air-ignition.md) | LOW | TODO |
 | 007 | [Итог занятия: строки по очереди](007-summary-stagger.md) | LOW | TODO |
