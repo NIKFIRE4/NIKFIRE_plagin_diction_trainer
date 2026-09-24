@@ -1,6 +1,6 @@
 # 001 — Ввести токены движения и тактильное нажатие кнопок
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: bfc29a5
 - **Severity**: LOW
 - **Category**: Cohesion & tokens · Physicality & origin
