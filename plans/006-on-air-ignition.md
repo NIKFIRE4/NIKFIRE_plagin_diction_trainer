@@ -1,6 +1,6 @@
 # 006 — Лампа эфира зажигается, а не появляется рывком
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: bfc29a5
 - **Severity**: LOW (missed opportunity — главный «авторский момент» продукта)
 - **Category**: Missed opportunities

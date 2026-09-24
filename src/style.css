@@ -100,7 +100,7 @@ p{margin:0}
 .tag.ai{background:var(--accent-soft);color:var(--accent)}
 
 /* ---------- cards / panels ---------- */
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:22px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:22px;transition:border-color 180ms var(--ease-out)}
 .panel.flat{box-shadow:none}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
@@ -461,7 +461,8 @@ select{border:1px solid var(--line);border-radius:9px;padding:7px 10px;backgroun
 
 /* ---------- лампа эфира и доступность ---------- */
 .panel.on-air{position:relative;border-color:var(--tally)}
-.panel.on-air::before{content:"Запись";position:absolute;top:-10px;left:18px;padding:0 8px 0 22px;line-height:20px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--warn);background:radial-gradient(circle at 12px 50%,var(--tally) 4px,transparent 4.5px),var(--surface)}
+.panel.on-air::before{content:"Запись";position:absolute;top:-10px;left:18px;padding:0 8px 0 22px;line-height:20px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--warn);background:radial-gradient(circle at 12px 50%,var(--tally) 4px,transparent 4.5px),var(--surface);transform-origin:left center;transition:opacity 180ms var(--ease-out),transform 180ms var(--ease-out)}
+@starting-style{.panel.on-air::before{opacity:0;transform:translateY(2px) scale(0.96)}}
 .btn.rec-btn.is-live{background:var(--tally);border-color:var(--tally);color:#1a1200}
 .skip{position:absolute;left:12px;top:-60px;z-index:60;padding:8px 14px;border:0;border-radius:var(--r-sm);background:var(--ink);color:var(--bg);font-weight:600}
 .skip:focus{top:calc(12px + env(safe-area-inset-top,0px))}
