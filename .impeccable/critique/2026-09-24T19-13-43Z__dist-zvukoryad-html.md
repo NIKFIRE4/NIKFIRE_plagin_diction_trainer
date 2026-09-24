@@ -10,6 +10,7 @@ target_fingerprint: "sha256:e0ddcdb068c017fc757a81b54fee87a96b619993c827418551ca
 target_path: "C:\\Users\\user\\Desktop\\zvukoryad-bridge\\github-upload\\dist\\zvukoryad.html"
 timestamp: 2026-09-24T19-13-43Z
 slug: dist-zvukoryad-html
+closed: true
 ---
 Method: dual-agent (A: design review · B: detector + browser)
 
