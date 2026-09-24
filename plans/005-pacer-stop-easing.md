@@ -1,6 +1,6 @@
 # 005 — Возврат шара темпа при остановке: `ease-out`, а не `linear`
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: bfc29a5
 - **Severity**: LOW
 - **Category**: Easing & duration

@@ -870,7 +870,7 @@ W.pace = (root, ex, ctx) => {
   const orb = $('#porb'), ph = $('#pph'), cnt = $('#pcnt');
   let cd = 0;
   const phase = (name, sec, scale, next) => {
-    ph.textContent = name; orb.style.transitionDuration = sec + 's'; orb.style.transform = `scale(${scale})`;
+    ph.textContent = name; orb.style.transitionTimingFunction = 'linear'; orb.style.transitionDuration = sec + 's'; orb.style.transform = `scale(${scale})`;
     let left = sec; cnt.textContent = left > 0 ? left : '';
     clearInterval(cd); cd = setInterval(() => { left--; cnt.textContent = left > 0 ? left : ''; }, 1000);
     timer = setTimeout(next, sec * 1000);
@@ -888,7 +888,7 @@ W.pace = (root, ex, ctx) => {
   };
   const stop = (done) => {
     running = false; clearTimeout(timer); clearInterval(cd);
-    orb.style.transitionDuration = '0.6s'; orb.style.transform = 'scale(.45)'; cnt.textContent = '';
+    orb.style.transitionTimingFunction = 'cubic-bezier(0.23, 1, 0.32, 1)'; orb.style.transitionDuration = '0.3s'; orb.style.transform = 'scale(.45)'; cnt.textContent = '';
     ph.textContent = done ? 'Готово' : 'Пауза'; $('#pgo').innerHTML = `${ico('play')}${done ? 'Ещё раз' : 'Продолжить'}`;
     if (done) { Snd.ok(); ctx.mark(); cyc = 0; }
   };
