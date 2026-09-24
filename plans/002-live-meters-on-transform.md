@@ -1,6 +1,6 @@
 # 002 — Живые индикаторы уровня: `width` → `transform: scaleX`
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: bfc29a5
 - **Severity**: MEDIUM
 - **Category**: Performance

@@ -903,7 +903,7 @@ function makeSustain(el, { sound, pitch, onAttempt, max = 60 }) {
     <div class="big-num num"><span class="sv">0,0</span><small>с</small></div>
     <div class="small muted sst" role="status" style="min-height:1.5em">Нажмите «Начать», вдохните и тяните звук</div>
     ${pitch ? '<div class="num small sp" style="min-height:1.5em;color:var(--ink-2)">—</div>' : ''}
-    <div class="meter"><i class="sm" style="width:0"></i></div>
+    <div class="meter"><i class="sm live"></i></div>
     <div class="row" style="justify-content:center"><button class="btn primary big rec-btn sgo">${ico('mic')}Начать</button>
     <button class="btn big shold" ${Mic.state === 'on' && !App.framed ? 'hidden' : ''}>Удерживайте, пока звучите</button></div>
     <div class="attempts satt"></div></div>`;
@@ -921,7 +921,7 @@ function makeSustain(el, { sound, pitch, onAttempt, max = 60 }) {
     onAttempt && onAttempt(a, attempts);
   };
   const off = Mic.on((f) => {
-    sm.style.width = clamp((f.db - Mic.floor) / 40, 0, 1) * 100 + '%';
+    sm.style.transform = `scaleX(${clamp((f.db - Mic.floor) / 40, 0, 1)})`;
     if (sp) sp.textContent = f.hz > 0 ? `${Math.round(f.hz)} Гц · ${noteName(f.hz)}` : '—';
     if (!armed) return;
     const on = f.db > Mic.thr(8);
@@ -1149,14 +1149,14 @@ W.volume = (root, ex, ctx) => {
     <div class="sound-label" id="vname">Скажите обычным голосом: «Раз, два, три, четыре, пять»</div>
     <div style="width:100%;position:relative;height:56px;border-radius:12px;background:var(--surface-2);overflow:hidden">
       <div id="vband" style="position:absolute;top:0;bottom:0;background:var(--target);border-left:2px solid var(--accent);border-right:2px solid var(--accent);display:none"></div>
-      <div id="vbar" style="position:absolute;left:0;top:18px;height:20px;border-radius:0 6px 6px 0;background:var(--accent);width:0;transition:width .06s"></div></div>
-    <div class="meter" style="height:6px"><i id="vhold" style="width:0;background:var(--good)"></i></div>
+      <div id="vbar" style="position:absolute;left:0;top:18px;height:20px;width:100%;transform-origin:left center;transform:scaleX(0);background:var(--accent);transition:transform 60ms linear;will-change:transform"></div></div>
+    <div class="meter" style="height:6px"><i id="vhold" class="live" style="background:var(--good)"></i></div>
     <div class="small muted" id="vst">Нажмите «Начать»</div>
     <button class="btn primary big rec-btn" id="vgo">${ico('mic')}Начать</button></div>`;
   let running = false, off = null, stage = -1, calib = [], L0 = 0, holdT = 0, lastT = 0;
   const lo = () => L0 - 20, hi = () => L0 + 16, px = (db) => clamp((db - lo()) / (hi() - lo()), 0, 1) * 100;
   const setStage = (k) => {
-    stage = k; holdT = 0; if (k >= 2) ctx.mark(); $('#vhold').style.width = '0';
+    stage = k; holdT = 0; if (k >= 2) ctx.mark(); $('#vhold').style.transform = 'scaleX(0)';
     if (k >= LEVELS.length) { running = false; off && off(); $('#vname').textContent = 'Готово. Вы прошли все уровни громкости.'; $('#vstage').textContent = 'Финиш'; $('#vband').style.display = 'none'; $('#vgo').innerHTML = `${ico('mic')}Ещё раз`; Snd.ok(); ctx.mark(); Store.hist('Проекция голоса: все 5 уровней'); return; }
     const L = LEVELS[k]; $('#vstage').textContent = `Уровень ${k + 1} из ${LEVELS.length}`; $('#vname').textContent = L.n;
     const band = $('#vband'); band.style.display = 'block'; band.style.left = px(L0 + L.d - 3) + '%'; band.style.width = (px(L0 + L.d + 3) - px(L0 + L.d - 3)) + '%';
@@ -1171,16 +1171,16 @@ W.volume = (root, ex, ctx) => {
     off = Mic.on((f) => {
       const dt = lastT ? f.t - lastT : 0; lastT = f.t;
       if (stage < 0) {
-        $('#vbar').style.width = clamp((f.db + 70) / 60, 0, 1) * 100 + '%';
+        $('#vbar').style.transform = `scaleX(${clamp((f.db + 70) / 60, 0, 1)})`;
         if (f.loud) calib.push(f.db);
-        $('#vhold').style.width = clamp(calib.length / 90, 0, 1) * 100 + '%';
+        $('#vhold').style.transform = `scaleX(${clamp(calib.length / 90, 0, 1)})`;
         if (calib.length >= 90) { L0 = pct(calib, 0.6); setStage(0); }
         return;
       }
-      $('#vbar').style.width = px(f.db) + '%';
+      $('#vbar').style.transform = `scaleX(${px(f.db) / 100})`;
       const tgt = L0 + LEVELS[stage].d;
       if (f.loud && Math.abs(f.db - tgt) <= 3) holdT += dt;
-      $('#vhold').style.width = clamp(holdT / 3, 0, 1) * 100 + '%';
+      $('#vhold').style.transform = `scaleX(${clamp(holdT / 3, 0, 1)})`;
       if (holdT >= 3) { Snd.ok(); setStage(stage + 1); }
     });
   };
@@ -1872,7 +1872,7 @@ W.dialog = (root, ex, ctx) => {
     <div class="panel lift stack" id="dTalk" hidden>
       <div class="row" style="justify-content:space-between"><span class="eyebrow" id="dTitle"></span><span class="verdict" id="dPhase"></span></div>
       <div class="chat" id="dChat" style="max-height:460px"></div>
-      <div class="meter" style="height:6px"><i id="dLvl" style="width:0;background:var(--tally)"></i></div>
+      <div class="meter" style="height:6px"><i id="dLvl" class="live" style="background:var(--tally)"></i></div>
       <div class="row"><button class="btn primary rec-btn" id="dMain">${ico('mic')}Говорить</button><button class="btn" id="dSkipTts" hidden>Перебить</button>
         <button class="btn ghost" id="dEnd" style="margin-left:auto">Завершить и разобрать</button></div>
       <form class="composer" id="dForm"><textarea id="dText" rows="1" placeholder="Или напишите ответ текстом…" aria-label="Ответ текстом"></textarea><button class="btn" type="submit">Отправить</button></form>
@@ -1948,7 +1948,7 @@ W.dialog = (root, ex, ctx) => {
     take = await startTake({
       whisper: S.dlgWhisper !== false,
       onText: (full, interim) => { lastChange = performance.now(); heard = true; live.innerHTML = markFill(full) + (interim ? ` <span class="interim">${esc(interim)}</span>` : ''); chat().scrollTop = 1e6; },
-      onFrame: (f) => { if (f.loud) { lastLoud = performance.now(); if (++loudN > 25) heard = true; } const l = $('#dLvl'); if (l) l.style.width = clamp((f.db - Mic.floor) / 40, 0, 1) * 100 + '%'; },
+      onFrame: (f) => { if (f.loud) { lastLoud = performance.now(); if (++loudN > 25) heard = true; } const l = $('#dLvl'); if (l) l.style.transform = `scaleX(${clamp((f.db - Mic.floor) / 40, 0, 1)})`; },
     });
     if (!take) { live.remove(); setPhase('idle', 'нет микрофона — пишите текстом'); return; }
     if (!take.asr && useWhisper()) live.innerHTML = '<span class="muted">слушаю… (текст появится после ответа — Whisper)</span>';
@@ -2008,7 +2008,7 @@ ${unclear.length ? 'Слова, где расшифровки разошлись
   };
   const finishListen = async (live) => {
     clearInterval(poll); if (!take) return;
-    const tk = take; take = null; setPhase('think', useWhisper() && S.dlgWhisper !== false ? 'распознаёт…' : 'думает…'); const r = await tk.stop(); const l = $('#dLvl'); if (l) l.style.width = '0';
+    const tk = take; take = null; setPhase('think', useWhisper() && S.dlgWhisper !== false ? 'распознаёт…' : 'думает…'); const r = await tk.stop(); const l = $('#dLvl'); if (l) l.style.transform = 'scaleX(0)';
     const lastBot = [...turns].reverse().find((t) => t.role === 'assistant');
     const text = stripEcho((r.text || '').trim(), lastBot && lastBot.content);
     if (r.asrText && lastBot) r.asrText = stripEcho(r.asrText, lastBot.content);
