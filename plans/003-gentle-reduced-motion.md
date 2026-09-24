@@ -1,6 +1,6 @@
 # 003 — Бережный `prefers-reduced-motion` вместо «выключить всё»
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: bfc29a5
 - **Severity**: MEDIUM
 - **Category**: Accessibility

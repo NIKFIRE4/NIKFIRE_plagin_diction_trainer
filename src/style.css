@@ -360,7 +360,14 @@ select{border:1px solid var(--line);border-radius:9px;padding:7px 10px;backgroun
   .panel{padding:16px}
   .mic-pitch{display:none}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}
+  .btn:active,.syl.on{transform:none}
+  .flash{animation:none}
+  .ai-pulse{animation:aipulse 2.4s ease-in-out infinite!important;animation-duration:2.4s!important;animation-iteration-count:infinite!important}
+  .pacer .orb{transform:none!important}
+  .toast,.panel.on-air::before,.sum-row{transition-property:opacity!important}
+}
 .detail{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--ink-2);background:var(--surface-2);border-radius:12px;padding:12px 14px}
 .detail b{color:var(--ink);font-weight:600}
 .detail ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
