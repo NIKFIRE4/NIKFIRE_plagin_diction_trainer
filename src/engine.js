@@ -339,7 +339,9 @@ function makeTrack() {
 /* ---------- Графики (SVG) ---------- */
 function lineChart(points, { h = 140, band, unit = '', digits = 1, color = 'var(--accent)' } = {}) {
   if (!points.length) return '<div class="empty">Пока нет замеров</div>';
-  const W = 520, H = h, L = 36, R = 12, T = 12, B = 22;
+  /* ширина = реальная ширина колонки графика, чтобы подписи и точки не растягивались */
+  const vw = (typeof window !== 'undefined' && window.innerWidth) || 1200;
+  const W = Math.round(vw > 760 ? Math.min(780, vw - 480) : Math.max(280, vw - 70)), H = h, L = 36, R = 12, T = 12, B = 22;
   const vs = points.map((p) => p.v);
   let lo = Math.min(...vs), hi = Math.max(...vs);
   if (band) { lo = Math.min(lo, band[0]); hi = Math.max(hi, band[1]); }
@@ -349,18 +351,20 @@ function lineChart(points, { h = 140, band, unit = '', digits = 1, color = 'var(
   const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
   const path = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
   const area = `${path}L${x(points.length - 1).toFixed(1)},${H - B}L${x(0).toFixed(1)},${H - B}Z`;
-  const ticks = [lo + padv, (lo + hi) / 2, hi - padv];
+  const rough = (hi - lo) / 4, mag = Math.pow(10, Math.floor(Math.log10(rough))), step = [1, 2, 2.5, 5, 10].find((k) => k * mag >= rough) * mag;
+  const ticks = []; for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step) ticks.push(+t.toFixed(6));
+  const td = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
   const d0 = new Date(points[0].t), d1 = new Date(points[points.length - 1].t);
   const dl = (d) => `${d.getDate()}.${pad2(d.getMonth() + 1)}`;
   const last = points[points.length - 1];
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="График">
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="График">
     <path d="${area}" fill="${color}" opacity=".06"/>
     ${band ? `<rect x="${L}" y="${y(band[1]).toFixed(1)}" width="${W - L - R}" height="${Math.max(0, y(band[0]) - y(band[1])).toFixed(1)}" fill="var(--good)" opacity=".16"/><line x1="${L}" x2="${W - R}" y1="${y(band[1]).toFixed(1)}" y2="${y(band[1]).toFixed(1)}" stroke="var(--good)" stroke-opacity=".6" stroke-dasharray="4 4"/><line x1="${L}" x2="${W - R}" y1="${y(band[0]).toFixed(1)}" y2="${y(band[0]).toFixed(1)}" stroke="var(--good)" stroke-opacity=".6" stroke-dasharray="4 4"/>` : ''}
-    ${ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line-2)" stroke-width="1"/><text x="${L - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" font-size="10.5" fill="var(--ink-3)" font-family="JetBrains Mono,monospace">${fmt(v, digits)}</text>`).join('')}
+    ${ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line-2)" stroke-width="1"/><text x="${L - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--ink-3)" font-family="Golos Text,sans-serif">${fmt(v, td)}</text>`).join('')}
     <path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
     <circle cx="${x(points.length - 1).toFixed(1)}" cy="${y(last.v).toFixed(1)}" r="4" fill="${color}" stroke="var(--surface)" stroke-width="2"/>
-    <text x="${L}" y="${H - 5}" font-size="10.5" fill="var(--ink-3)" font-family="JetBrains Mono,monospace">${dl(d0)}</text>
-    <text x="${W - R}" y="${H - 5}" text-anchor="end" font-size="10.5" fill="var(--ink-3)" font-family="JetBrains Mono,monospace">${dl(d1)}</text>
+    <text x="${L}" y="${H - 5}" font-size="10.5" fill="var(--ink-3)" font-family="Golos Text,sans-serif">${dl(d0)}</text>
+    <text x="${W - R}" y="${H - 5}" text-anchor="end" font-size="10.5" fill="var(--ink-3)" font-family="Golos Text,sans-serif">${dl(d1)}</text>
   </svg>`;
 }
 function spark(points) {

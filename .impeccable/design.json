@@ -1,192 +1,177 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-24T19:29:46.671Z",
+  "generatedAt": "2026-09-24T20:49:26.120Z",
   "title": "Design System: Звукоряд",
   "extensions": {
     "colorMeta": {
-      "signal-blue": {
+      "ink": {
         "role": "primary",
-        "displayName": "Сигнальный синий",
-        "canonical": "#2A45D4",
+        "displayName": "Чернила",
+        "canonical": "#17181A",
         "tonalRamp": [
-          "#0d1540",
-          "#16246f",
-          "#1f339d",
-          "#2843cc",
-          "#5067dc",
-          "#7f90e6",
-          "#b7c0f1",
-          "#eaecfb"
+          "#242529",
+          "#3e4146",
+          "#595c64",
+          "#737882",
+          "#90949d",
+          "#aeb1b7",
+          "#d1d3d6",
+          "#f1f2f3"
         ]
       },
-      "on-air-amber": {
+      "record-red": {
         "role": "secondary",
-        "displayName": "Лампа эфира",
-        "canonical": "#E48A00",
+        "displayName": "Красный записи",
+        "canonical": "#D93036",
         "tonalRamp": [
-          "#4d2e00",
-          "#855000",
-          "#bd7200",
-          "#f59400",
-          "#ffac2e",
-          "#ffc366",
-          "#ffdda8",
-          "#fff5e5"
+          "#410c0e",
+          "#701518",
+          "#9f1d22",
+          "#cf262c",
+          "#df4e53",
+          "#e77e81",
+          "#f2b6b8",
+          "#fbe9ea"
         ]
       },
-      "level-green": {
+      "data-blue": {
         "role": "tertiary",
-        "displayName": "Зелёный уровень",
-        "canonical": "#17744B",
+        "displayName": "Синий данных",
+        "canonical": "#2F5BEA",
+        "tonalRamp": [
+          "#071645",
+          "#0c2678",
+          "#1136ab",
+          "#1645de",
+          "#4169ec",
+          "#7491f1",
+          "#b0c1f7",
+          "#e8edfd"
+        ]
+      },
+      "norm-green": {
+        "role": "tertiary",
+        "displayName": "Зелёный нормы",
+        "canonical": "#18794E",
         "tonalRamp": [
           "#0d4029",
-          "#166f48",
+          "#166f47",
           "#1f9d66",
           "#29cc84",
-          "#50dc9f",
-          "#7fe6b9",
+          "#51dc9e",
+          "#7fe6b8",
           "#b7f1d7",
           "#eafbf3"
         ]
       },
-      "clip-red": {
-        "role": "tertiary",
-        "displayName": "Красный перегруз",
-        "canonical": "#B03524",
+      "page": {
+        "role": "neutral",
+        "displayName": "Страница",
+        "canonical": "#F4F4F1",
         "tonalRamp": [
-          "#40130d",
-          "#6e2117",
-          "#9d2f20",
-          "#cb3d2a",
-          "#db6251",
-          "#e58c80",
-          "#f0beb7",
-          "#fbecea"
+          "#2b2b22",
+          "#4a4a3a",
+          "#6a6a53",
+          "#89896c",
+          "#a3a38a",
+          "#bcbca9",
+          "#d9d9ce",
+          "#f4f4f1"
         ]
       },
-      "booth-mist": {
+      "control": {
         "role": "neutral",
-        "displayName": "Туманная будка",
-        "canonical": "#EDF0F3",
+        "displayName": "Элемент управления",
+        "canonical": "#EBEBE7",
         "tonalRamp": [
-          "#1f262e",
-          "#354250",
-          "#4b5e71",
-          "#627a93",
-          "#8296ab",
-          "#a3b3c2",
-          "#cbd4dc",
-          "#f0f2f5"
-        ]
-      },
-      "booth-night": {
-        "role": "neutral",
-        "displayName": "Ночная аппаратная",
-        "canonical": "#0D1318",
-        "tonalRamp": [
-          "#1b2732",
-          "#2f4456",
-          "#42617a",
-          "#567e9f",
-          "#7799b6",
-          "#9cb5c9",
-          "#c7d5e1",
-          "#eef3f6"
-        ]
-      },
-      "ink": {
-        "role": "neutral",
-        "displayName": "Чернила",
-        "canonical": "#131C26",
-        "tonalRamp": [
-          "#192633",
-          "#2c4158",
-          "#3f5d7e",
-          "#5278a3",
-          "#7495b9",
-          "#99b1cc",
-          "#c5d3e2",
-          "#eef2f7"
+          "#2a2a23",
+          "#48483c",
+          "#676756",
+          "#86866f",
+          "#a0a08d",
+          "#b9b9ac",
+          "#d8d8d0",
+          "#f3f3f1"
         ]
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Заголовок экрана",
-        "purpose": "Один на страницу, Unbounded 600."
+        "purpose": "Один на экран; над ним ничего."
       },
       "readout": {
         "displayName": "Табло",
-        "purpose": "Живое число замера во время упражнения."
+        "purpose": "Живое число замера в упражнении, tabular-nums."
+      },
+      "title-lg": {
+        "displayName": "Следующее",
+        "purpose": "Название следующего упражнения на «Сегодня»."
       },
       "headline": {
-        "displayName": "Заголовок панели",
-        "purpose": "«План дня», «Навыки»."
+        "displayName": "Заголовок группы",
+        "purpose": "«План на сегодня», «Минуты по неделям»."
       },
       "title": {
-        "displayName": "Название",
-        "purpose": "Упражнение, пункт плана, строка."
+        "displayName": "Строка",
+        "purpose": "Название упражнения, навыка, пункта."
       },
       "body": {
         "displayName": "Текст",
-        "purpose": "Основной текст и пояснения до 70ch."
+        "purpose": "Пояснения до 72ch."
       },
-      "label": {
-        "displayName": "Метка",
-        "purpose": "Эйбрау и подписи панелей, uppercase."
-      },
-      "mono": {
-        "displayName": "Цифры",
-        "purpose": "Счётчики, даты, единицы, номера шагов."
+      "meta": {
+        "displayName": "Мета",
+        "purpose": "«5 мин · микрофон» обычным текстом."
       }
     },
     "shadows": [
       {
-        "name": "ambient-lift",
-        "value": "0 1px 2px rgba(19,28,38,.06),0 6px 24px rgba(19,28,38,.06)",
-        "purpose": "Только тост."
-      },
-      {
-        "name": "status-halo",
-        "value": "0 0 0 4px var(--tally-soft)",
-        "purpose": "Ореол точки статуса микрофона и ИИ."
+        "name": "toast",
+        "value": "0 1px 2px rgba(23,24,26,.06),0 8px 28px rgba(23,24,26,.10)",
+        "purpose": "Только всплывающий тост."
       }
     ],
     "motion": [
       {
-        "name": "state",
-        "value": ".15s",
-        "purpose": "Фон и граница кнопок."
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Входы и нажатия."
       },
       {
         "name": "press",
-        "value": "transform .05s",
-        "purpose": "Нажатие кнопки на 1px."
+        "value": "scale(0.97) 160ms",
+        "purpose": "Нажатие кнопки."
+      },
+      {
+        "name": "on-air",
+        "value": "opacity/transform 180ms",
+        "purpose": "Метка «Запись» зажигается."
+      },
+      {
+        "name": "toast",
+        "value": "translate 8px + opacity 200ms",
+        "purpose": "Вход тоста через @starting-style."
+      },
+      {
+        "name": "stagger",
+        "value": "60ms",
+        "purpose": "Строки итога занятия."
       },
       {
         "name": "meter",
-        "value": "width .08s",
-        "purpose": "Живой индикатор уровня."
-      },
-      {
-        "name": "ring",
-        "value": "stroke-dashoffset .25s linear",
-        "purpose": "Кольцо таймера."
-      },
-      {
-        "name": "reduced-motion",
-        "value": "transition:none; animation:none",
-        "purpose": "prefers-reduced-motion отключает всё."
+        "value": "transform scaleX 80ms linear",
+        "purpose": "Живой индикатор громкости."
       }
     ],
     "breakpoints": [
       {
         "name": "stack",
-        "value": "980px"
+        "value": "1040px"
       },
       {
         "name": "mobile",
-        "value": "820px"
+        "value": "760px"
       }
     ]
   },
@@ -196,16 +181,8 @@
       "kind": "button",
       "refersTo": "button-primary",
       "description": "Одно главное действие экрана.",
-      "html": "<button class=\"ds-btn ds-btn-primary\">Начать занятие</button>",
-      "css": ".ds-btn{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:550 14.5px var(--f-body);cursor:pointer;transition:background .15s,border-color .15s,transform .05s}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}.ds-btn-primary:hover{filter:brightness(1.08)}"
-    },
-    {
-      "name": "Record Button",
-      "kind": "button",
-      "refersTo": "button-record",
-      "description": "Только для записи с микрофона.",
-      "html": "<button class=\"ds-btn ds-btn-rec\">Идёт запись</button>",
-      "css": ".ds-btn{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:550 14.5px var(--f-body);cursor:pointer;transition:background .15s,border-color .15s,transform .05s}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-btn-rec{background:var(--tally);border-color:var(--tally);color:#1a1200}"
+      "html": "<button class=\"ds-btn ds-primary\">Начать занятие</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 16px;border:0;border-radius:10px;background:var(--surface-3);color:var(--ink);font:600 15px var(--f-body);cursor:pointer;transition:background .15s ease,transform 160ms cubic-bezier(0.23,1,0.32,1)}.ds-btn:hover{background:#E0E0DB}.ds-btn:active{transform:scale(0.97)}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-primary{background:var(--ink);color:#fff}.ds-primary:hover{background:#2D2F33}"
     },
     {
       "name": "Secondary Button",
@@ -213,85 +190,93 @@
       "refersTo": "button-secondary",
       "description": "Второстепенные действия.",
       "html": "<button class=\"ds-btn\">Образец</button>",
-      "css": ".ds-btn{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:550 14.5px var(--f-body);cursor:pointer;transition:background .15s,border-color .15s,transform .05s}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-btn:hover{border-color:var(--ink-3)}"
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 16px;border:0;border-radius:10px;background:var(--surface-3);color:var(--ink);font:600 15px var(--f-body);cursor:pointer;transition:background .15s ease,transform 160ms cubic-bezier(0.23,1,0.32,1)}.ds-btn:hover{background:#E0E0DB}.ds-btn:active{transform:scale(0.97)}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Recording Button",
+      "kind": "button",
+      "refersTo": "button-recording",
+      "description": "Кнопка записи во время записи.",
+      "html": "<button class=\"ds-btn ds-rec\">Стоп</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 16px;border:0;border-radius:10px;background:var(--surface-3);color:var(--ink);font:600 15px var(--f-body);cursor:pointer;transition:background .15s ease,transform 160ms cubic-bezier(0.23,1,0.32,1)}.ds-btn:hover{background:#E0E0DB}.ds-btn:active{transform:scale(0.97)}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-rec{background:var(--tally);color:#fff}"
     },
     {
       "name": "Chip",
       "kind": "chip",
       "refersTo": "chip",
-      "description": "Фильтры и выбор варианта.",
-      "html": "<button class=\"ds-chip\">Лёгкие</button><button class=\"ds-chip\" aria-pressed=\"true\">Все</button>",
-      "css": ".ds-chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font:500 13.5px var(--f-body);color:var(--ink-2);margin-right:6px}.ds-chip:hover{border-color:var(--ink-3);color:var(--ink)}.ds-chip[aria-pressed=\"true\"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}"
+      "description": "Фильтр.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"true\">Все</button><button class=\"ds-chip\">Дыхание</button>",
+      "css": ".ds-chip{border:0;border-radius:999px;padding:6px 14px;margin-right:6px;background:var(--surface-3);font:500 14px var(--f-body);color:var(--ink-2)}.ds-chip[aria-pressed=\"true\"]{background:var(--ink);color:#fff}"
     },
     {
-      "name": "Panel",
+      "name": "Group with list",
       "kind": "card",
-      "refersTo": "panel",
-      "description": "Базовый контейнер.",
-      "html": "<section class=\"ds-panel\"><div class=\"ds-eyebrow\">Как выполнять</div><p>Глубокий вдох животом.</p></section>",
-      "css": ".ds-panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;color:var(--ink);font:15px/1.5 var(--f-body)}.ds-eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-3);font-weight:500;margin-bottom:8px}"
+      "refersTo": "group",
+      "description": "Белая группа без рамки со строками.",
+      "html": "<section class=\"ds-group\"><button class=\"ds-row\"><b>Скороговорки</b><span>5 мин</span></button><button class=\"ds-row\"><b>Долгий выдох на «С»</b><span>3 мин</span></button></section>",
+      "css": ".ds-group{background:#fff;border-radius:14px;padding:6px 8px;font:15px/1.5 var(--f-body)}.ds-row{display:flex;justify-content:space-between;width:100%;padding:14px 16px;border:0;background:none;text-align:left;color:var(--ink)}.ds-row + .ds-row{border-top:1px solid var(--line-2)}.ds-row:hover{background:var(--surface-2)}.ds-row span{color:var(--ink-3);font-variant-numeric:tabular-nums}"
     },
     {
       "name": "Readout",
       "kind": "custom",
       "refersTo": "readout",
-      "description": "Живое табло замера.",
+      "description": "Табло замера.",
       "html": "<div class=\"ds-readout\">18,4<small>с</small></div>",
-      "css": ".ds-readout{font:500 72px/1 var(--f-display);letter-spacing:-.04em;color:var(--ink)}.ds-readout small{font:450 18px var(--f-body);color:var(--ink-3);margin-left:6px;letter-spacing:0}"
+      "css": ".ds-readout{font:600 88px/1 var(--f-body);letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--ink)}.ds-readout small{font-size:20px;color:var(--ink-3);margin-left:6px;letter-spacing:0;font-weight:500}"
     },
     {
-      "name": "Nav Item",
+      "name": "Tabs",
       "kind": "nav",
-      "refersTo": "nav-item-active",
-      "description": "Пункт сайдбара.",
-      "html": "<nav class=\"ds-nav\"><button>Сегодня</button><button aria-current=\"page\">Дикция</button></nav>",
-      "css": ".ds-nav{display:flex;flex-direction:column;gap:2px;width:220px}.ds-nav button{padding:8px 10px;border:0;background:none;border-radius:9px;text-align:left;color:var(--ink-2);font:500 14.5px var(--f-body)}.ds-nav button:hover{background:var(--surface-2);color:var(--ink)}.ds-nav button[aria-current=\"page\"]{background:var(--accent-soft);color:var(--accent)}"
+      "refersTo": "nav",
+      "description": "Четыре вкладки.",
+      "html": "<nav class=\"ds-tabs\"><button aria-current=\"page\">Сегодня</button><button>Упражнения</button><button>Прогресс</button><button>Программа</button></nav>",
+      "css": ".ds-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}.ds-tabs button{position:relative;padding:18px 12px;border:0;background:none;color:var(--ink-3);font:500 15px var(--f-body)}.ds-tabs button[aria-current=\"page\"]{color:var(--ink)}.ds-tabs button[aria-current=\"page\"]::after{content:\"\";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;border-radius:2px;background:var(--ink)}"
     }
   ],
   "narrative": {
-    "northStar": "Студия звукозаписи",
-    "overview": "Звукоряд — комната, в которой человек остаётся один на один со своим голосом. Как в студии, всё оборудование на виду, но молчит, пока не нужно: индикатор уровня, лампа «в эфире», крупное табло с цифрой замера. Цвет работает как сигнальная система студии: синий — действие и живой сигнал, янтарный — микрофон включён и идёт запись, зелёный — уровень в норме, красный — перегруз и ошибка.",
+    "northStar": "Спокойный тренер",
+    "overview": "Звукоряд выглядит как хорошо сделанное приложение-тренер, а не как дашборд. Планка — Yoodli и Speeko по ясности ежедневного сценария и Apple Health по подаче цифр. Главный экран отвечает на один вопрос: что сделать сейчас. Светло-серая страница, белые группы без рамок, один Golos Text, чернильные кнопки; красный — запись, зелёный — норма, синий — ссылки и данные.",
     "keyCharacteristics": [
-      "Крупные цифры замеров шрифтом Unbounded — главный визуальный герой.",
-      "Цвет несёт смысл состояния, у каждого сигнального цвета есть бледная «подложка» (wash) для фона.",
-      "Панели с границей в 1px вместо теней; глубина — за счёт тона.",
-      "Моноширинные цифры везде, где значение меняется или сравнивается.",
-      "Русский текст с text-wrap: balance/pretty для заголовков и крупных фраз."
+      "Одна чёрная кнопка главного действия на экран.",
+      "Белые группы 14px на сером, внутри списки с разделителями.",
+      "Крупные табличные цифры, единица рядом серым.",
+      "Четыре вкладки словами.",
+      "Одна светлая тема."
     ],
     "rules": [
       {
-        "name": "The Signal Rule",
-        "body": "Каждый цвет, кроме нейтральных, означает состояние. Синий — «делай / живое», янтарный — «запись», зелёный — «норма», красный — «ошибка». Цвет не используется для украшения.",
+        "name": "The Quiet Color Rule",
+        "body": "Цвет появляется, только когда что-то значит.",
         "section": "colors"
       },
       {
-        "name": "The Wash Rule",
-        "body": "Цветной фон — всегда подложка (wash), а не сплошной сигнальный цвет. Сплошной цвет — только для кнопки главного действия, маркера на шкале и точки статуса.",
+        "name": "The Red Means Recording Rule",
+        "body": "Красный — только запись.",
         "section": "colors"
       },
       {
-        "name": "The Readout Rule",
-        "body": "Число замера всегда крупнее своей подписи минимум в полтора раза, единица измерения — мелким Onest серым рядом с числом.",
+        "name": "The No Kicker Rule",
+        "body": "Над заголовком ничего не пишется; дата, шаг и фокус идут строкой под ним.",
         "section": "typography"
       },
       {
-        "name": "The Flat Booth Rule",
-        "body": "Панели лежат на поверхности. Тень — исключение для всплывающего, а не способ выделить карточку.",
+        "name": "The No Border Rule",
+        "body": "У групп нет рамок и теней; рамка — только состояние.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do показывать главную цифру экрана шрифтом Unbounded, единицу — мелким серым Onest рядом.",
-      "Do использовать цвет только по Signal Rule; фоном — подложку (wash).",
-      "Do держать один primary на экран; остальные действия — secondary или ghost.",
-      "Do выравнивать меняющиеся числа моноширинным шрифтом с tabular-nums.",
-      "Do проверять каждую правку в обеих темах: цвета заданы парами."
+      "Do держать одну чёрную кнопку главного действия на экран.",
+      "Do набирать все цифры с tabular-nums и единицей рядом серым.",
+      "Do оставлять красный только за записью, синий — за ссылками и данными.",
+      "Do писать дату, шаг и фокус строкой под заголовком."
     ],
     "donts": [
-      "Don't добавлять тени карточкам, чтобы выделить их; выделяйте тоном или линией.",
-      "Don't красить янтарным что-то, кроме записи, микрофона и мягких предупреждений.",
-      "Don't использовать Unbounded для абзацного текста и мелких подписей.",
-      "Don't отвлекать во время упражнения: на сцене нет декоративных элементов и анимаций, не связанных с голосом."
+      "Don't ставить эйбрау или кикер над заголовком.",
+      "Don't выстраивать одинаковые карточки в сетку и ряды статистики.",
+      "Don't добавлять группам рамки или тени.",
+      "Don't использовать теги-пилюли для метаданных.",
+      "Don't вводить второй шрифт, в том числе моноширинный для цифр."
     ]
   }
 }

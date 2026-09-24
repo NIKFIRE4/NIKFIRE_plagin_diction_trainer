@@ -19,25 +19,26 @@ document.addEventListener('click', (e) => {
 
 /* ---------- навигация ---------- */
 const NAV = [
-  { r: 'home', t: 'Сегодня', i: 'home' },
-  { r: 'program', t: 'Моя программа', i: 'target' },
-  { r: 'diag', t: 'Диагностика', i: 'gauge' },
-  { label: 'Тренировка' },
-  ...SECTIONS.map((s) => ({ r: 'sec-' + s.id, t: s.title, i: s.icon })),
-  { label: 'Инструменты' },
-  { r: 'ex-dialog', t: 'Собеседник', i: 'speak' },
-  { r: 'ex-coach', t: 'ИИ-коуч', i: 'bubble' },
-  { r: 'ex-upload', t: 'Анализ записи', i: 'file' },
-  { r: 'progress', t: 'Прогресс', i: 'chart' },
-  { r: 'method', t: 'Методика', i: 'book' },
-  { r: 'settings', t: 'Настройки', i: 'gear' },
+  { r: 'home', t: 'Сегодня' },
+  { r: 'lib', t: 'Упражнения' },
+  { r: 'progress', t: 'Прогресс' },
+  { r: 'program', t: 'Программа' },
 ];
+/* маршруты, которые можно открыть по адресу (кроме sec-* и ex-*) */
+const ROUTES = ['home', 'lib', 'progress', 'program', 'diag', 'method', 'settings'];
+const validRoute = (h) => !!h && (ROUTES.includes(h) || (h.startsWith('ex-') && !!exById(h.slice(3))) || (h.startsWith('sec-') && LIB_SECS.some((s) => 'sec-' + s.id === h)));
+/* какая вкладка активна для маршрута */
+function navOf(r) {
+  if (r === 'home' || r === 'done') return 'home';
+  if (r.startsWith('ex-')) return App.session ? 'home' : 'lib';
+  if (r === 'lib' || r.startsWith('sec-')) return 'lib';
+  if (r === 'program' || r === 'diag' || r === 'method') return 'program';
+  return r;
+}
 function renderNav() {
-  const cur = App.route.startsWith('ex-') ? (exById(App.route.slice(3))?.sec === 'tools' || App.route === 'ex-coach' || App.route === 'ex-dialog' ? App.route : 'sec-' + exById(App.route.slice(3))?.sec) : App.route;
-  $('#nav').innerHTML = NAV.map((n) => n.label ? `<div class="nav-label">${n.label}</div>` : `<button data-go="${n.r}" ${cur === n.r ? 'aria-current="page"' : ''}>${ico(n.i)}<span>${n.t}</span></button>`).join('');
-  const s = Store.streak();
-  $('#streak').innerHTML = `<b>${s}</b> ${plural(s, 'день', 'дня', 'дней')} подряд`;
-  const tm = Math.round(Store.d.days[dayKey()] || 0); $('#todayMin').textContent = tm ? `сегодня ${tm} мин` : 'сегодня ещё не занимались';
+  const cur = navOf(App.route);
+  $('#nav').innerHTML = NAV.map((n) => `<button data-go="${n.r}" ${cur === n.r ? 'aria-current="page"' : ''}>${n.t}</button>`).join('');
+  const sb = $('#settingsBtn'); if (sb) { if (cur === 'settings') sb.setAttribute('aria-current', 'page'); else sb.removeAttribute('aria-current'); }
 }
 
 /* ---------- микрофон в шапке ---------- */
@@ -93,16 +94,17 @@ function render() {
   const r = App.route, v = view();
   let crumb = 'Звукоряд';
   if (r === 'home') { crumb = 'Сегодня'; viewHome(v); }
-  else if (r === 'program') { crumb = 'Моя программа'; viewProgram(v); }
+  else if (r === 'program') { crumb = 'Программа'; viewProgram(v); }
   else if (r === 'diag') { crumb = 'Диагностика'; viewDiag(v); }
   else if (r === 'progress') { crumb = 'Прогресс'; viewProgress(v); }
   else if (r === 'method') { crumb = 'Методика'; viewMethod(v); }
   else if (r === 'settings') { crumb = 'Настройки'; viewSettings(v); }
   else if (r === 'done') { crumb = 'Итог занятия'; viewSummary(v); }
-  else if (r.startsWith('sec-')) { const s = SECTIONS.find((x) => x.id === r.slice(4)); if (!s) return go('home'); crumb = s.title; viewSection(v, s); }
+  else if (r === 'lib') { crumb = 'Упражнения'; viewLibrary(v, null); }
+  else if (r.startsWith('sec-')) { const s = LIB_SECS.find((x) => x.id === r.slice(4)); if (!s) return go('home'); crumb = s.title; viewLibrary(v, s); }
   else if (r.startsWith('ex-')) { const ex = exById(r.slice(3)); if (!ex) return go('home'); const s = SECTIONS.find((x) => x.id === ex.sec); crumb = (s ? s.title + ' · ' : '') + ex.title; viewExercise(v, ex); }
   else return go('home');
-  $('#crumb').textContent = crumb;
+  document.title = crumb === 'Звукоряд' ? crumb : crumb + ' · Звукоряд';
 }
 
 /* ---------- ИИ ---------- */
@@ -574,48 +576,71 @@ function forecastHead(pr) {
   const slow = Store.dayIndex() >= 7 && rh.perWeek < 4.5 && w;
   return { w, date: w ? ruDate(Date.now() + w * WEEK) : null, miss, slow, rh, altW: slow ? Math.ceil((w * 5) / Math.max(1, rh.perWeek)) : null };
 }
-function forecastCard(pr) {
-  const f = forecastHead(pr);
-  if (!f) return `<section class="panel stack fc"><span class="eyebrow">Прогноз</span><p>Прогноз появится, когда будут замеры хотя бы по трём навыкам. Быстрее всего — диагностика: 4 минуты.</p><div><button class="btn" data-go="diag">Пройти диагностику</button></div></section>`;
-  return `<section class="panel stack fc"><div class="row" style="justify-content:space-between"><span class="eyebrow">Прогноз · неделя ${pr.week}</span><button class="btn ghost" data-go="program" style="min-height:0;padding:2px 6px;color:var(--accent)">Вся программа →</button></div>
-    ${f.w === 0 ? '<div class="fc-big">Цели достигнуты</div><p class="small muted">Все измеренные навыки на хорошем уровне. Держите форму и повышайте сложность.</p>'
-      : f.w ? `<div class="fc-big">≈ ${weeksT(f.w)}</div><p class="small">до хорошего уровня по всем навыкам — <b>к ${f.date}</b>, если заниматься 5 дней в неделю.</p>`
-      : '<div class="fc-big">Больше года</div><p class="small">при нынешнем темпе. Регулярные занятия ускорят рост.</p>'}
-    ${f.slow ? `<p class="small warn-t">Сейчас вы занимаетесь ${fmt(f.rh.perWeek, 1)} ${plural(Math.round(f.rh.perWeek), 'день', 'дня', 'дней')} в неделю — в таком ритме ≈ ${weeksT(f.altW)}.</p>` : ''}
-    <div class="skills-mini">${pr.views.map((x) => `<div class="${pr.focus.includes(x.s.id) ? 'focus' : ''}"><span class="n">${x.s.title}</span>${skillBar(x)}<span class="e">${etaText(pr, x)}</span></div>`).join('')}</div>
-    ${f.miss.length ? `<p class="small muted">Без замера: ${f.miss.join(', ')} — они есть в плане.</p>` : ''}</section>`;
-}
-/* раздел тренировки → навык программы, чей уровень показываем на карточке раздела */
+/* раздел тренировки → навык программы, чей уровень показываем в библиотеке */
 const SEC_SKILL = { breath: 'breath', voice: 'voice', diction: 'diction', expr: 'expr', speech: 'fluency' };
+/* неделя с понедельника: минуты по дням */
+function weekStrip() {
+  const d = new Date(), shift = (d.getDay() + 6) % 7; d.setDate(d.getDate() - shift);
+  const names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'], today = dayKey();
+  let past = true;
+  return `<div class="week">${names.map((n) => {
+    const k = dayKey(d), m = Math.round(Store.d.days[k] || 0), isT = k === today;
+    const cls = [m >= 10 ? 'l2' : m > 0 ? 'l1' : '', isT ? 'now' : '', !past ? 'later' : ''].join(' ');
+    if (isT) past = false;
+    d.setDate(d.getDate() + 1);
+    return `<div class="day ${cls}" title="${k}: ${m} мин"><span class="dot">${m || ''}</span>${n}</div>`;
+  }).join('')}</div>`;
+}
+function calWeekMinutes() {
+  const d = new Date(); d.setDate(d.getDate() - (d.getDay() + 6) % 7); let m = 0;
+  for (let i = 0; i < 7; i++) { m += Store.d.days[dayKey(d)] || 0; d.setDate(d.getDate() + 1); }
+  return Math.round(m);
+}
 function viewHome(v) {
   const { pr, items } = todayPlan();
   const mins = items.reduce((a, it) => a + planMin(it), 0), done = items.filter((it) => Store.doneToday(it.id)).length;
-  const nextI = items.findIndex((it) => !Store.doneToday(it.id));
+  const nextI = items.findIndex((it) => !Store.doneToday(it.id)), nx = items[nextI];
   const wd = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   const fT = pr.focus.map((id) => skillById(id).title.toLowerCase()).join(' и ');
+  const exN = nx && exById(nx.id);
+  const next = nx ? `<section class="panel next-up">
+            <h2 class="next-title">${esc(planTitle(nx))}</h2>
+      ${nx.why ? `<p class="next-why">${esc(nx.why)}</p>` : ''}
+      ${nx.goal ? `<p class="next-goal">${esc(nx.goal)}</p>` : ''}
+      <p class="meta-line num">Шаг ${nextI + 1} из ${items.length} · ${esc(nx.block)} · ${planMin(nx)} мин${nx.id === 'diag' || (exN && exN.mic) ? ' · нужен микрофон' : ''}</p>
+      <div class="row"><button class="btn primary big" id="startSession">${ico('play')}${done ? 'Продолжить занятие' : 'Начать занятие'}</button><button class="btn ghost big" data-go="${planRoute(nx)}">Только это упражнение</button></div>
+    </section>`
+    : `<section class="panel next-up">
+      <h2 class="next-title">План на сегодня выполнен</h2>
+      <p class="next-why">Сегодня ${Math.round(Store.d.days[dayKey()] || 0)} мин. Завтра план соберётся заново по свежим замерам. Можно повторить любое упражнение или поговорить с собеседником.</p>
+      <div class="row"><button class="btn primary big" id="startSession">${ico('play')}Пройти ещё раз</button><button class="btn ghost big" data-go="progress">Посмотреть прогресс</button></div>
+    </section>`;
+  const f = forecastHead(pr);
+  const focus = pr.focus.length ? pr.focus.map((id) => { const x = pr.V(id), t = pr.weekTarget(x); return `<div class="focus-row"><span class="n">${x.s.title}</span><span class="v">${fmt(x.v, x.s.dg)} → ${t == null ? skillGoalText(x.s) : `${x.s.band ? '' : x.s.lower ? '≤ ' : '≥ '}${skillVal(x.s, t)}`}</span>${skillBar(x)}<span class="small muted">уровень ${Math.round(x.score)}% от хорошего</span></div>`; }).join('')
+    : '<p class="small muted">Фокус появится после первых замеров: тренажёр возьмёт два самых слабых навыка.</p>';
+  const s = Store.streak(), wm = calWeekMinutes();
   v.innerHTML = `
     ${micNotice()}
-    <div class="sec-head"><h1 class="h1">Тренировка на сегодня</h1>
-      <p class="lead">${esc(wd[0].toUpperCase() + wd.slice(1))} · неделя ${pr.week}. ${fT ? `Фокус недели — ${fT}: план собран по вашим замерам и меняется вместе с ними.` : 'Сначала — исходный замер: по нему план подстроится под ваши слабые места.'}</p></div>
-    <div class="hero">
-      <section class="panel plan">
-        <div class="plan-head"><div class="stack" style="gap:2px"><h2 class="h2">План дня</h2><span class="small muted num">${done} из ${items.length} · ${mins} мин</span></div>
-          <button class="btn primary big" id="startSession">${ico('play')}${done === items.length ? 'Повторить занятие' : done ? 'Продолжить занятие' : 'Начать занятие'}</button></div>
-        <ol class="plan-list">${items.map((it, i) => { const ex = exById(it.id), d = Store.doneToday(it.id), nx = i === nextI; return `<li class="plan-item${d ? ' done' : ''}${nx ? ' next' : ''}"><button class="plan-row" data-go="${planRoute(it)}"><span class="check" aria-hidden="true"></span><span class="pi"><span class="t">${esc(planTitle(it))}${d ? '<span class="sr"> — выполнено</span>' : ''}</span><span class="s">${esc(it.block)}${it.id === 'diag' || (ex && ex.mic) ? ' · микрофон' : ''}</span>${nx && it.why ? `<span class="why">${esc(it.why)}</span>` : ''}${nx && it.goal ? `<span class="goal">${esc(it.goal)}</span>` : ''}</span><span class="m num">${planMin(it)} мин</span></button></li>`; }).join('')}</ol>
-        <div class="row plan-foot">${done === items.length ? '<span class="verdict good">План на сегодня выполнен</span>' : ''}<button class="btn ghost" id="replan" title="Собрать план заново по свежим замерам">Пересобрать план</button></div>
-      </section>
-      <section class="stack">
-        ${forecastCard(pr)}
-        <div class="stats">
-          <div class="stat"><span class="k">Серия</span><span class="v">${Store.streak()}<small>${plural(Store.streak(), 'день', 'дня', 'дней')}</small></span><span class="d">занимайтесь 5+ дней в неделю</span></div>
-          <div class="stat"><span class="k">За 7 дней</span><span class="v">${Store.weekMinutes()}<small>мин</small></span><span class="d">цель — 75+ минут</span></div>
-        </div>
-        <div class="panel"><div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="eyebrow">Активность</span><span class="small muted">12 недель</span></div>${heatmap()}</div>
-      </section>
-    </div>
-    <section class="stack"><h2 class="h2">Разделы</h2>
-      <div class="grid3">${SECTIONS.map((s) => { const x = SEC_SKILL[s.id] && pr.V(SEC_SKILL[s.id]); const n = EXERCISES.filter((e) => e.sec === s.id).length; return `<button class="sec-card" data-go="sec-${s.id}"><span class="t">${s.title}</span><span class="g">${esc(s.lead)}</span><span class="sec-foot">${x && x.v != null ? `${skillBar(x)}<span class="num">${Math.round(x.score)}%</span>` : ''}<span class="small muted">${n} ${plural(n, 'упражнение', 'упражнения', 'упражнений')}</span></span></button>`; }).join('')}</div>
-    </section>`;
+    <div class="today-grid">
+      <div class="today-main">
+        <header class="page-head"><h1 class="h1">Сегодня</h1>
+          <p class="lead">${esc(wd[0].toUpperCase() + wd.slice(1))}, неделя ${pr.week}.${fT ? ` Фокус недели: ${fT}.` : ' Сначала исходный замер, по нему план подстроится под вас.'}</p></header>
+        ${next}
+        <section class="panel plan" aria-labelledby="planH">
+          <div class="plan-head"><h2 class="h2" id="planH">План на сегодня</h2><span class="small muted num">${done} из ${items.length} · ${mins} мин</span></div>
+          <ol class="plan-list">${items.map((it, i) => { const ex = exById(it.id), d = Store.doneToday(it.id); return `<li class="plan-item${d ? ' done' : ''}${i === nextI ? ' next' : ''}"><button class="plan-row" data-go="${planRoute(it)}"><span class="check" aria-hidden="true"></span><span class="pi"><span class="t">${esc(planTitle(it))}${d ? '<span class="sr">, выполнено</span>' : ''}</span><span class="s">${esc(it.block)}${it.id === 'diag' || (ex && ex.mic) ? ' · микрофон' : ''}</span></span><span class="m">${planMin(it)} мин</span></button></li>`; }).join('')}</ol>
+          <div class="plan-foot"><span>План собран по вашим замерам</span><button class="btn ghost" id="replan" title="Собрать план заново по свежим замерам">Пересобрать</button></div>
+        </section>
+      </div>
+      <aside class="today-side">
+        <section class="panel side-block"><div class="side-head"><h2 class="h3">Эта неделя</h2><span class="small muted num">${wm} мин · цель 75</span></div>
+          ${weekStrip()}
+          <p class="week-sum">${s ? `${s} ${plural(s, 'день', 'дня', 'дней')} подряд.` : 'Серия начнётся с первого занятия.'} Лучше всего работает 5 дней в неделю по 15–20 минут.</p></section>
+        <section class="panel side-block"><div class="side-head"><h2 class="h3">Фокус недели</h2><button class="linkish" data-go="program">Программа</button></div>
+          ${focus}
+          ${f && f.w ? `<p class="small muted">До хорошего уровня по всем навыкам около ${weeksT(f.w)}, к ${f.date}.</p>` : ''}</section>
+      </aside>
+    </div>`;
   $('#startSession').onclick = () => {
     const routes = items.map(planRoute), first = items.findIndex((it) => !Store.doneToday(it.id));
     App.session = { items: routes, idx: first < 0 ? 0 : first, t0: Date.now(), m0: Store.d.days[dayKey()] || 0 };
@@ -653,7 +678,7 @@ function viewSummary(v) {
     return { x, v: v0, d, better, t: pr.weekTarget(x) };
   }).filter(Boolean);
   const chk = pr.chk, nextChk = !chk.t ? 'Исходного замера ещё нет — пройдите диагностику, чтобы появился прогноз.' : chk.due ? 'Пора сделать контрольный замер — он пересчитает фокус и прогноз.' : `Контрольный замер через ${7 - chk.days} ${plural(7 - chk.days, 'день', 'дня', 'дней')}.`;
-  v.innerHTML = `<div class="sec-head"><h1 class="h1">Занятие завершено</h1>
+  v.innerHTML = `<div class="sec-head"><h1 class="h1">Итог занятия</h1>
       <p class="lead">${mins > 0 ? `${mins} мин · ` : ''}выполнено ${done} из ${items.length} пунктов плана.</p></div>
     <section class="panel stack summary">
       ${rows.length ? `<h2 class="h2">Что измерили сегодня</h2>
@@ -673,16 +698,15 @@ function viewProgram(v) {
   const shown = rows.slice(0, 12);
   const confT = (x) => x.conf === 'personal' ? `ваш темп: ${rateText(x.s, x.trend)}` : x.conf === 'stall' ? 'по замерам роста пока нет — прогноз осторожный' : x.v == null ? '' : `типичный темп; ваш — после 3 дней замеров`;
   const sz = Store.last('sz');
-  v.innerHTML = `<div class="sec-head"><h1 class="h1">Моя программа</h1>
-      <p class="lead">Неделя ${pr.week}${pr.focus.length ? ', фокус — ' + pr.focus.map((id) => skillById(id).title.toLowerCase()).join(' и ') : ''}. Шесть навыков, у каждого — измеримый показатель и цель «хороший уровень». План дня тренирует самые слабые, раз в неделю контрольный замер пересчитывает фокус и прогноз.</p></div>
+  v.innerHTML = `<div class="sec-head"><h1 class="h1">Программа</h1>
+      <p class="lead">Неделя ${pr.week}${pr.focus.length ? ', фокус — ' + pr.focus.map((id) => skillById(id).title.toLowerCase()).join(' и ') : ''}. Шесть навыков, у каждого — измеримый показатель и цель «хороший уровень». План дня тренирует самые слабые, раз в неделю контрольный замер пересчитывает фокус и прогноз.</p><p class="meta-line"><button class="linkish" data-go="method">Как устроена методика</button> · <button class="linkish" data-go="diag">Диагностика</button></p></div>
     ${sz > 1.4 ? `<div class="notice bad"><div style="flex:1"><b>Индекс S/Z — ${fmt(sz, 2)}.</b> Выше 1,4 бывает, когда связки смыкаются неплотно. Если есть осиплость дольше двух недель — покажитесь фониатру. До этого не форсируйте громкость.</div></div>` : ''}
     <section class="panel lift stack">
       <div class="fc-row"><div class="stack" style="gap:4px">
-        <span class="eyebrow">Когда будет хороший уровень</span>
-        ${!f ? '<div class="fc-big">Нужны замеры</div><p class="small">Пройдите диагностику — по ней посчитаю уровень каждого навыка и срок.</p>'
-          : f.w === 0 ? '<div class="fc-big">Цели достигнуты</div><p class="small">Все измеренные навыки на хорошем уровне.</p>'
-          : f.w ? `<div class="fc-big">≈ ${weeksT(f.w)} · к ${f.date}</div><p class="small">При 5 занятиях в неделю по 15–20 минут.${f.slow ? ` В нынешнем ритме (${fmt(f.rh.perWeek, 1)} дн. в неделю) — ≈ ${weeksT(f.altW)}.` : ''}</p>`
-          : '<div class="fc-big">Больше года</div><p class="small">по нынешним замерам.</p>'}
+                ${!f ? '<h2 class="h2">Прогноз появится после диагностики</h2><p class="small">Пройдите диагностику — по ней посчитаю уровень каждого навыка и срок.</p>'
+          : f.w === 0 ? '<h2 class="h2">Все измеренные навыки на хорошем уровне</h2><p class="small">Все измеренные навыки на хорошем уровне.</p>'
+          : f.w ? `<h2 class="h2">Хороший уровень — примерно к ${f.date}, через ${weeksT(f.w)}</h2><p class="small">При 5 занятиях в неделю по 15–20 минут.${f.slow ? ` В нынешнем ритме (${fmt(f.rh.perWeek, 1)} дн. в неделю) — ≈ ${weeksT(f.altW)}.` : ''}</p>`
+          : '<h2 class="h2">По нынешним замерам больше года</h2><p class="small">Регулярные занятия ускорят рост.</p>'}
         ${f && f.miss.length ? `<p class="small muted">Пока без замера: ${f.miss.join(', ')} — срок уточнится.</p>` : ''}</div>
         <div class="row" style="align-self:center"><button class="btn primary" data-go="diag">${pr.chk.t ? 'Контрольный замер' : 'Пройти диагностику'}</button><button class="btn" id="pAiGo">Разбор ИИ-коуча</button></div></div>
       <p class="small muted">${pr.chk.t ? `Последний контрольный замер: ${pr.chk.days === 0 ? 'сегодня' : pr.chk.days + ' ' + plural(pr.chk.days, 'день', 'дня', 'дней') + ' назад'}${pr.chk.due ? ' — пора повторить' : ` · следующий через ${7 - pr.chk.days} ${plural(7 - pr.chk.days, 'день', 'дня', 'дней')}`}.` : 'Контрольных замеров ещё не было.'}</p>
@@ -722,22 +746,20 @@ ${pr.views.map((x) => `- ${x.s.title} (${x.s.what}): ${x.v == null ? 'нет з�
 Фокус недели: ${pr.focus.map((id) => skillById(id).title).join(', ') || 'нет'}. Занятий в неделю: ${fmt(trainingRhythm().perWeek, 1)}.
 Дай по-русски без markdown-заголовков, до 220 слов: 1) что растёт и что буксует; 2) почему буксующий навык может не расти и что поменять в технике; 3) один конкретный совет на эту неделю для каждого фокусного навыка; 4) реалистичен ли срок и что его сократит.` });
 }
-function heatmap() {
-  const days = 84, d = new Date(); d.setDate(d.getDate() - days + 1);
-  const shift = (d.getDay() + 6) % 7; d.setDate(d.getDate() - shift);
-  let cells = '';
-  const today = dayKey();
-  for (let i = 0; i < days + shift; i++) {
-    const k = dayKey(d), m = Store.d.days[k] || 0, l = m === 0 ? 0 : m < 6 ? 1 : m < 14 ? 2 : 3;
-    cells += `<i data-l="${l}" class="${k === today ? 'today' : ''}" title="${k}: ${Math.round(m)} мин"></i>`;
-    d.setDate(d.getDate() + 1);
-  }
-  return `<div class="heat">${cells}</div>`;
+/* минуты по неделям за 12 недель: столбцы, текущая неделя тёмная */
+function weeksChart() {
+  const d = new Date(); d.setDate(d.getDate() - (d.getDay() + 6) % 7 - 7 * 11);
+  const wks = [];
+  for (let w = 0; w < 12; w++) { const start = new Date(d); let m = 0; for (let i = 0; i < 7; i++) { m += Store.d.days[dayKey(d)] || 0; d.setDate(d.getDate() + 1); } wks.push({ m: Math.round(m), start }); }
+  const max = Math.max(90, ...wks.map((w) => w.m)), h = (m) => Math.round((m / max) * 96);
+  return `<div class="weeks"><span class="goal-line" style="bottom:${22 + h(75)}px"><span>цель 75</span></span>${wks.map((w, i) => `<div class="wk ${i === 11 ? 'now' : w.m >= 75 ? 'on' : ''}" title="Неделя с ${w.start.getDate()}.${pad2(w.start.getMonth() + 1)}: ${w.m} мин"><b>${w.m || ''}</b><i style="height:${Math.max(3, h(w.m))}px"></i><span>${w.start.getDate()}.${pad2(w.start.getMonth() + 1)}</span></div>`).join('')}</div>`;
 }
 
 /* ========== РАЗДЕЛ ========== */
+/* разделы библиотеки: шесть тренировочных + инструменты */
+const LIB_SECS = [...SECTIONS, { id: 'tools', title: 'Инструменты', lead: 'Разбор готовой аудиозаписи: собеседование, выступление, созвон.' }];
 function exTags(ex) {
-  return [`<span class="tag num">${ex.min} мин</span>`, ex.mic ? '<span class="tag mic">микрофон</span>' : '', ex.asr ? '<span class="tag mic">распознавание</span>' : '', ex.ai ? '<span class="tag ai">ИИ</span>' : ''].join('');
+  return `<span class="tag num">${ex.min} мин</span>${ex.mic ? '<span class="tag"> · микрофон</span>' : ''}${ex.ai ? '<span class="tag ai"> · ИИ</span>' : ''}`;
 }
 function bestLabel(ex) {
   const b = Store.d.best;
@@ -748,28 +770,36 @@ function bestLabel(ex) {
   if (Store.doneToday(ex.id)) return 'сегодня ✓';
   return '';
 }
-function viewSection(v, s) {
-  const list = EXERCISES.filter((e) => e.sec === s.id);
-  v.innerHTML = `${list.some((e) => e.mic) ? micNotice() : ''}
-    <div class="sec-head"><h1 class="h1">${s.title}</h1><p class="lead">${esc(s.lead)}</p><p class="why">${esc(s.why)}</p></div>
-    <div class="ex-list">${list.map((e) => `<button class="ex-row" data-go="ex-${e.id}"><div><div class="t">${esc(e.title)}</div><div class="g">${esc(e.goal)}</div></div><div class="meta"><span class="best">${bestLabel(e)}</span>${exTags(e)}</div></button>`).join('')}</div>`;
+function viewLibrary(v, sel) {
+  const pr = program(), groups = sel ? [sel] : LIB_SECS;
+  const count = (n) => `${n} ${plural(n, 'упражнение', 'упражнения', 'упражнений')}`;
+  const lvl = (sec) => { const x = SEC_SKILL[sec.id] && pr.V(SEC_SKILL[sec.id]); return x && x.v != null ? `уровень ${Math.round(x.score)}% от хорошего` : ''; };
+  const all = EXERCISES.filter((e) => LIB_SECS.some((x) => x.id === e.sec));
+  v.innerHTML = `${micNotice()}
+    <header class="page-head"><h1 class="h1">${sel ? sel.title : 'Упражнения'}</h1>
+      <p class="lead">${sel ? esc(sel.lead) : `${count(all.length)}. Каждый день удобнее идти по плану на «Сегодня», а здесь можно повторить любимое или добрать слабое место.`}</p>
+      ${sel && sel.why ? `<p class="why">${esc(sel.why)}</p>` : ''}${sel && lvl(sel) ? `<p class="meta-line">${lvl(sel)}</p>` : ''}</header>
+    <div class="lib-filter" role="group" aria-label="Раздел">${[{ id: null, title: 'Все' }, ...LIB_SECS].map((x) => `<button class="chip" data-go="${x.id ? 'sec-' + x.id : 'lib'}" aria-pressed="${(sel ? sel.id : null) === x.id}">${x.title}</button>`).join('')}</div>
+    ${groups.map((g) => { const list = EXERCISES.filter((e) => e.sec === g.id); if (!list.length) return ''; return `<section class="lib-group">
+      ${sel ? '' : `<div class="lib-group-head"><h2 class="h2">${g.title}</h2><p class="small muted">${[lvl(g), count(list.length)].filter(Boolean).join(' · ')}</p></div>`}
+      <div class="ex-list">${list.map((e) => `<button class="ex-row" data-go="ex-${e.id}"><div><div class="t">${esc(e.title)}</div><div class="g">${esc(e.goal)}</div></div><div class="meta">${bestLabel(e) ? `<span class="best">${bestLabel(e)}</span>` : ''}<span>${exTags(e)}</span></div></button>`).join('')}</div></section>`; }).join('')}`;
 }
 
 /* ========== УПРАЖНЕНИЕ ========== */
 function viewExercise(v, ex) {
-  const s = SECTIONS.find((x) => x.id === ex.sec);
+  const s = LIB_SECS.find((x) => x.id === ex.sec);
   const inSession = App.session && App.session.items[App.session.idx] === 'ex-' + ex.id;
-  const sessBar = inSession ? `<div class="sessionbar"><span>Занятие · ${App.session.idx + 1} из ${App.session.items.length}</span><span class="bar"><i style="width:${(App.session.idx / App.session.items.length) * 100}%"></i></span><button id="sSkip">Пропустить</button><button id="sEnd">Завершить</button></div>` : '';
+  const sessBar = inSession ? `<div class="session"><span class="num">Занятие · ${App.session.idx + 1} из ${App.session.items.length}</span><span class="seg" aria-hidden="true">${App.session.items.map((_, i) => `<i class="${i < App.session.idx ? 'done' : i === App.session.idx ? 'cur' : ''}"></i>`).join('')}</span><button id="sSkip">Пропустить</button><button id="sEnd">Завершить</button></div>` : '';
   /* цель из сегодняшнего плана — чтобы не держать её в голове с главного экрана */
   const pit = ((Store.d.plans[dayKey()] || {}).items || []).find((it) => it.id === ex.id && it.goal);
   v.innerHTML = `${sessBar}
-    <div class="ex-top"><button class="back" data-go="${s ? 'sec-' + s.id : 'home'}">${ico('prev').replace('<svg', '<svg width="14" height="14" style="stroke:currentColor;fill:none;stroke-width:2"')} ${s ? s.title : 'Сегодня'}</button>
-      <h1 class="h1">${esc(ex.title)}</h1><p class="lead">${esc(ex.goal)}</p><div class="row">${exTags(ex)}</div>
+    <div class="ex-top">${inSession ? '' : `<button class="back" data-go="${s ? 'sec-' + s.id : 'lib'}">${ico('prev').replace('<svg', '<svg width="14" height="14" style="stroke:currentColor;fill:none;stroke-width:2"')} ${s ? s.title : 'Упражнения'}</button>`}
+      <h1 class="h1">${esc(ex.title)}</h1><p class="lead">${esc(ex.goal)}</p><p class="meta-line">${exTags(ex)}</p>
       ${pit ? `<p class="goal-strip"><span class="eyebrow">Сегодня по плану</span><span>${esc(pit.goal)}</span></p>` : ''}</div>
     ${ex.mic ? micNotice() : ''}
     <div class="ex-layout"><div class="stage-col"><div class="stage" id="stage"></div>
       ${ex.type === 'coach' || ex.type === 'upload' ? '' : `<div class="row done-row"><span class="small muted" id="doneNote"></span><button class="btn${inSession ? ' big' : ''}" id="doneBtn">${inSession ? (App.session.idx + 1 < App.session.items.length ? 'Готово — дальше' : 'Завершить занятие') : 'Отметить выполненным'}</button></div>`}</div>
-      <aside class="how panel"><span class="eyebrow">Как выполнять</span><ol>${ex.how.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></aside></div>`;
+      <aside class="how"><h2 class="h3">Как выполнять</h2><ol>${ex.how.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></aside></div>`;
   let marked = false;
   const ctx = {
     ex,
@@ -1029,7 +1059,7 @@ W.range = (root, ex, ctx) => {
   const draw = () => {
     const { c, w, h: H } = fitCanvas(cv); c.clearRect(0, 0, w, H);
     const y = (hz) => H - 14 - (Math.log2(hz / 60) / Math.log2(1100 / 60)) * (H - 28);
-    c.font = '11px JetBrains Mono, monospace'; c.fillStyle = css('--ink-3'); c.strokeStyle = css('--line');
+    c.font = '11px Golos Text, sans-serif'; c.fillStyle = css('--ink-3'); c.strokeStyle = css('--line');
     [65, 130, 260, 520, 1040].forEach((hz) => { c.beginPath(); c.moveTo(40, y(hz)); c.lineTo(w, y(hz)); c.stroke(); c.fillText(noteName(hz), 6, y(hz) + 4); });
     c.fillStyle = css('--accent');
     pts.forEach((p) => { const x = 40 + (p.t / 12) * (w - 50); c.beginPath(); c.arc(x, y(p.hz), 2.2, 0, 7); c.fill(); });
@@ -1082,7 +1112,7 @@ W.pitch = (root, ex, ctx) => {
     const now = running ? performance.now() / 1000 - T0 : 0;
     const x = (t) => w * 0.3 + ((t - now) / 6) * w;
     const y = (s) => H - 18 - ((s - P.lo) / (P.hi - P.lo)) * (H - 36);
-    g.font = '11px JetBrains Mono, monospace';
+    g.font = '11px Golos Text, sans-serif';
     for (let s = Math.ceil(P.lo); s <= P.hi; s++) {
       if (s % 2 && s !== 7) continue;
       g.strokeStyle = css('--line'); g.globalAlpha = s === 0 ? 0.9 : 0.45; g.beginPath(); g.moveTo(0, y(s)); g.lineTo(w, y(s)); g.stroke(); g.globalAlpha = 1;
@@ -1101,7 +1131,7 @@ W.pitch = (root, ex, ctx) => {
     g.strokeStyle = css('--ink'); g.globalAlpha = 0.25; g.lineWidth = 1; g.beginPath(); g.moveTo(x(now), 0); g.lineTo(x(now), H); g.stroke(); g.globalAlpha = 1;
     // след
     for (const p of trail) { if (p.t < now - 2.2) continue; g.fillStyle = p.hit ? css('--good') : css('--bad'); g.beginPath(); g.arc(x(p.t), y(p.s), 3, 0, 7); g.fill(); }
-    if (running && now < LEAD) { g.fillStyle = css('--ink'); g.font = '600 22px Onest, sans-serif'; g.textAlign = 'center'; g.fillText(Math.ceil(LEAD - now) + '', w / 2, 40); g.textAlign = 'left'; }
+    if (running && now < LEAD) { g.fillStyle = css('--ink'); g.font = '600 22px Golos Text, sans-serif'; g.textAlign = 'center'; g.fillText(Math.ceil(LEAD - now) + '', w / 2, 40); g.textAlign = 'left'; }
     if (running) raf = requestAnimationFrame(draw);
   };
   const endRound = () => { if (round >= 0 && tot > 5) { scores.push(Math.round((hits / tot) * 100)); ctx.mark(); } hits = 0; tot = 0; };
@@ -1199,7 +1229,7 @@ W.candle = (root, ex, ctx) => {
     const cx = w / 2, base = H - 70;
     c.fillStyle = css('--line'); c.fillRect(cx - 18, base, 36, 70);
     c.strokeStyle = css('--ink-3'); c.lineWidth = 2; c.beginPath(); c.moveTo(cx, base); c.lineTo(cx, base - 10); c.stroke();
-    if (out > 0) { c.fillStyle = css('--ink-3'); c.font = '600 15px Onest, sans-serif'; c.textAlign = 'center'; c.fillText('Погасла — дуйте мягче', cx, 40); c.textAlign = 'left'; }
+    if (out > 0) { c.fillStyle = css('--ink-3'); c.font = '600 15px Golos Text, sans-serif'; c.textAlign = 'center'; c.fillText('Погасла — дуйте мягче', cx, 40); c.textAlign = 'left'; }
     else {
       const tilt = I * 1.1 + (Math.random() - 0.5) * flick * 0.8, len = 70 - I * 25 + (Math.random() - 0.5) * flick * 30, wid = 16 + I * 4;
       c.save(); c.translate(cx, base - 8); c.rotate(tilt);
@@ -1265,8 +1295,8 @@ W.twister = (root, ex, ctx) => {
   const STAGES = [{ n: 'Медленно', d: 'утрированно', rate: 0.6, reps: 1 }, { n: 'Шёпотом', d: 'губы активны', rate: 0.8, reps: 1 }, { n: 'Обычно', d: 'в темпе речи', rate: 1, reps: 1 }, { n: 'Быстро ×3', d: 'три раза подряд', rate: 1.3, reps: 3 }];
   const lib = !c.set && c.single == null;
   root.innerHTML = `
-    ${lib ? `<div class="stack"><div class="chips" id="tgrp">${[...TW_GROUPS, ...(custom.length ? [{ id: 'mine', label: 'Мои' }] : [])].map((g) => `<button class="chip" data-g="${g.id}" aria-pressed="${g.id === grp}">${g.label}</button>`).join('')}</div>
-    <div class="chips" id="tlvl">${['Все уровни', 'Лёгкие', 'Средние', 'Сложные'].map((l, i) => `<button class="chip" data-l="${i}" aria-pressed="${i === lvl}">${l}</button>`).join('')}</div></div>` : ''}
+    ${lib ? `<div class="stack"><div class="tw-filters"><div class="chips scroll-row" id="tgrp">${[...TW_GROUPS, ...(custom.length ? [{ id: 'mine', label: 'Мои' }] : [])].map((g) => `<button class="chip" data-g="${g.id}" aria-pressed="${g.id === grp}">${g.label}</button>`).join('')}</div>
+    <label class="lvl-select"><span class="sr">Сложность</span><select id="tlvl">${['Все уровни', 'Лёгкие', 'Средние', 'Сложные'].map((l, i) => `<option value="${i}" ${i === lvl ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div></div>` : ''}
     <div class="panel lift stack">
       <div class="row" style="justify-content:space-between"><span class="lvl" id="tpos"></span><div class="row" style="gap:4px">
         <button class="btn ghost" id="tprev" aria-label="Предыдущая">${ico('prev')}</button><button class="btn ghost" id="trand" aria-label="Случайная">${ico('shuffle')}</button><button class="btn ghost" id="tnext" aria-label="Следующая">${ico('next')}</button></div></div>
@@ -1290,7 +1320,7 @@ W.twister = (root, ex, ctx) => {
   const reset = () => { $('#tres').hidden = true; $('#theard').hidden = true; $('#taudio').hidden = true; paint(); };
   if (lib) {
     $('#tgrp').onclick = (e) => { const b = e.target.closest('[data-g]'); if (!b) return; grp = b.dataset.g; idx = 0; $$('#tgrp .chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); reset(); };
-    $('#tlvl').onclick = (e) => { const b = e.target.closest('[data-l]'); if (!b) return; lvl = +b.dataset.l; idx = 0; $$('#tlvl .chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); reset(); };
+    $('#tlvl').onchange = (e) => { lvl = +e.target.value; idx = 0; reset(); };
   }
   const nav = (d) => { if (take) return; idx = d === 'r' ? Math.floor(Math.random() * pool().length) : idx + d; reset(); };
   $('#tprev').onclick = () => nav(-1); $('#tnext').onclick = () => nav(1); $('#trand').onclick = () => nav('r');
@@ -1565,7 +1595,7 @@ function contourSVG(frames, t0, t1, words) {
   let d = '', pen = false;
   pts.forEach((f) => { if (f.hz > 0) { const s = clamp(st(f.hz, med), -12, 12); d += `${pen ? 'L' : 'M'}${x(f.t).toFixed(1)},${y(s).toFixed(1)}`; pen = true; } else pen = false; });
   const e = pts.map((f, i) => `${i ? 'L' : 'M'}${x(f.t).toFixed(1)},${yd(f.db).toFixed(1)}`).join('');
-  const lbl = words ? words.map((w) => `<text x="${x(w.t).toFixed(1)}" y="${H + 14}" text-anchor="middle" font-size="12" fill="var(--ink-3)" font-family="Onest,sans-serif">${esc(w.w)}</text>`).join('') : '';
+  const lbl = words ? words.map((w) => `<text x="${x(w.t).toFixed(1)}" y="${H + 14}" text-anchor="middle" font-size="12" fill="var(--ink-3)" font-family="Golos Text,sans-serif">${esc(w.w)}</text>`).join('') : '';
   return `<svg viewBox="0 0 ${W} ${H + 20}" style="width:100%;height:auto;display:block" role="img" aria-label="Контур высоты голоса">
     <line x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}" stroke="var(--line)" stroke-dasharray="3 4"/>
     <path d="${e}" fill="none" stroke="var(--ink-3)" stroke-width="1" opacity=".5"/>
@@ -2174,7 +2204,7 @@ function viewDiag(v) {
     const s = DIAG_STEPS[i];
     const exLike = { id: 'diag-' + s.id, title: s.title, cfg: s.cfg, type: s.type, how: [] };
     const st_ = $('#dstage');
-    st_.innerHTML = `<div class="ex-layout"><div class="stage" id="dw"></div><aside class="how panel"><span class="eyebrow">Шаг ${i + 1} из ${DIAG_STEPS.length}</span><ol>${diagHow(s.id).map((x) => `<li>${x}</li>`).join('')}</ol><div class="row"><button class="btn primary" id="dnext">${i + 1 < DIAG_STEPS.length ? 'Дальше' : 'Итоги'}</button><button class="btn ghost" id="dskip">Пропустить</button></div></aside></div>`;
+    st_.innerHTML = `<div class="ex-layout"><div class="stage" id="dw"></div><aside class="how panel"><span class="eyebrow">Шаг ${i + 1} из ${DIAG_STEPS.length}</span><ol>${diagHow(s.id).map((x) => `<li>${x}</li>`).join('')}</ol><div class="row"><button class="btn" id="dnext">${i + 1 < DIAG_STEPS.length ? 'Дальше' : 'Итоги'}</button><button class="btn ghost" id="dskip">Пропустить</button></div></aside></div>`;
     const ctx = { mark() {}, onResult: (r) => Object.assign(res, r) };
     if (s.type === 'sustain') {
       $('#dw').innerHTML = '<div class="panel lift" id="dsus"></div><div class="panel" id="dsres" hidden></div>';
@@ -2280,12 +2310,9 @@ function viewProgress(v) {
   ];
   const withData = M.filter(([k]) => daily(k).length), empty = M.filter(([k]) => !daily(k).length);
   v.innerHTML = `<div class="sec-head"><h1 class="h1">Прогресс</h1><p class="lead">Зелёная полоса на графиках — ориентир нормы. Данные хранятся в этом браузере; перенести их в другую копию тренажёра можно в <button class="btn ghost" data-go="settings" style="min-height:0;padding:0 0 0 4px;color:var(--accent);font-size:inherit">Настройках</button>.</p></div>
-    <div class="stats" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-      <div class="stat"><span class="k">Серия</span><span class="v">${Store.streak()}<small>${plural(Store.streak(), 'день', 'дня', 'дней')}</small></span></div>
-      <div class="stat"><span class="k">За 7 дней</span><span class="v">${Store.weekMinutes()}<small>мин</small></span></div>
-      <div class="stat"><span class="k">Всего</span><span class="v">${Math.round(Object.values(Store.d.days).reduce((a, b) => a + b, 0))}<small>мин</small></span></div></div>
-    <div class="panel"><div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="eyebrow">Активность</span><span class="small muted">12 недель</span></div>${heatmap()}</div>
-    ${withData.length ? `<div class="grid2">${withData.map(([k, l, u, mode, band, dg]) => { const pts = daily(k, mode), last = pts[pts.length - 1].v, first = pts[0].v; return `<div class="panel chart-card"><div class="top"><span class="h3">${l}</span><span class="cur num">${fmt(last, dg)} <span class="small muted">${u}</span></span></div>${pts.length > 1 ? `<span class="small muted">с первого замера: ${last - first >= 0 ? '+' : ''}${fmt(last - first, dg)} ${u}</span>` : '<span class="small muted">первый замер — линия появится со второго дня</span>'}${lineChart(pts, { band, digits: dg })}</div>`; }).join('')}</div>` : ''}
+    
+    <section class="panel stack"><div class="side-head"><h2 class="h2">Минуты по неделям</h2><span class="small muted num">${Store.streak()} ${plural(Store.streak(), 'день', 'дня', 'дней')} подряд · ${Math.round(Object.values(Store.d.days).reduce((a, b) => a + b, 0))} мин всего</span></div>${weeksChart()}</section>
+    ${withData.length ? `<section class="panel metric-list">${withData.map(([k, l, u, mode, band, dg]) => { const pts = daily(k, mode), last = pts[pts.length - 1].v, first = pts[0].v; return `<div class="metric"><div class="metric-info"><h2 class="h3">${l}</h2><span class="metric-v num">${fmt(last, dg)}<small>${u}</small></span><span class="small muted num">${pts.length > 1 ? `${last - first >= 0 ? '+' : '−'}${fmt(Math.abs(last - first), dg)} ${u} с первого замера` : 'первый замер'}</span><span class="small good num">норма ${fmt(band[0], dg)}–${fmt(band[1], dg)} ${u}</span></div><div class="metric-chart">${pts.length > 1 ? lineChart(pts, { band, digits: dg }) : '<p class="small muted">Линия появится со второго дня замеров.</p>'}</div></div>`; }).join('')}</section>` : ''}
     ${empty.length ? `<div class="panel stack"><span class="eyebrow">Ещё нет замеров</span><div class="chips">${empty.map(([k, l, , , , , r]) => `<button class="chip" data-go="${r}">${l} →</button>`).join('')}</div><p class="small muted">Графики появятся после первых попыток. Быстрее всего получить основные замеры — пройти диагностику.</p></div>` : ''}
     <section class="panel stack"><h2 class="h2">История</h2>${Store.d.history.length ? `<table class="hist"><tbody>${Store.d.history.slice(0, 30).map((x) => { const d = new Date(x.t); return `<tr><td>${d.getDate()}.${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}</td><td style="font-family:var(--f-body);text-align:left;font-size:14px">${esc(x.text)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">Пока пусто</div>'}</section>`;
 }
@@ -2485,7 +2512,7 @@ function boot() {
   });
   $('#skip').onclick = () => { const v = view(); v.tabIndex = -1; v.focus(); };
   const hash = (location.hash || '').slice(1);
-  App.route = hash && (NAV.some((n) => n.r === hash) || (hash.startsWith('ex-') && exById(hash.slice(3))) || hash.startsWith('sec-')) ? hash : 'home';
+  App.route = validRoute(hash) ? hash : 'home';
   render();
   const t0 = Date.now();
   const light = () => { if (Date.now() - t0 < 15000 && !App.busy) go(App.route); };
@@ -2497,6 +2524,6 @@ function boot() {
   if (cfg && !App.framed) connectBridge(cfg).then(light).catch(() => { setAi('error', App.bridgeInfo && !App.bridgeInfo.cli ? 'мост запущен, но не нашёл Claude CLI' : 'мост к Claude CLI не запущен'); if (App.bridgeInfo) light(); });
   else if (!window.claude) setAi('none', 'не подключён Claude CLI — запустите мост из архива');
   $('#aichip').onclick = () => go('settings');
-  window.addEventListener('hashchange', () => { const hsh = (location.hash || '').slice(1); if (hsh && hsh !== App.route && (NAV.some((n) => n.r === hsh) || (hsh.startsWith('ex-') && exById(hsh.slice(3))) || hsh.startsWith('sec-'))) go(hsh); });
+  window.addEventListener('hashchange', () => { const hsh = (location.hash || '').slice(1); if (hsh !== App.route && validRoute(hsh)) go(hsh); });
 }
 boot();

@@ -10,3 +10,5 @@ _release/
 # сторонние скиллы ставятся локально
 .claude/skills/
 .claude/settings.local.json
+.impeccable/review/
+.impeccable/questions/
