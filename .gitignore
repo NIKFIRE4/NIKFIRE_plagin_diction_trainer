@@ -6,3 +6,7 @@ node_modules/
 Thumbs.db
 *.part
 _release/
+
+# сторонние скиллы ставятся локально
+.claude/skills/
+.claude/settings.local.json
