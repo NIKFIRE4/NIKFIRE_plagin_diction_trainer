@@ -354,9 +354,9 @@ function lineChart(points, { h = 140, band, unit = '', digits = 1, color = 'var(
   const dl = (d) => `${d.getDate()}.${pad2(d.getMonth() + 1)}`;
   const last = points[points.length - 1];
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="График">
-    ${band ? `<rect x="${L}" y="${y(band[1]).toFixed(1)}" width="${W - L - R}" height="${Math.max(0, y(band[0]) - y(band[1])).toFixed(1)}" fill="var(--good)" opacity=".1"/>` : ''}
+    <path d="${area}" fill="${color}" opacity=".06"/>
+    ${band ? `<rect x="${L}" y="${y(band[1]).toFixed(1)}" width="${W - L - R}" height="${Math.max(0, y(band[0]) - y(band[1])).toFixed(1)}" fill="var(--good)" opacity=".16"/><line x1="${L}" x2="${W - R}" y1="${y(band[1]).toFixed(1)}" y2="${y(band[1]).toFixed(1)}" stroke="var(--good)" stroke-opacity=".6" stroke-dasharray="4 4"/><line x1="${L}" x2="${W - R}" y1="${y(band[0]).toFixed(1)}" y2="${y(band[0]).toFixed(1)}" stroke="var(--good)" stroke-opacity=".6" stroke-dasharray="4 4"/>` : ''}
     ${ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line-2)" stroke-width="1"/><text x="${L - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" font-size="10.5" fill="var(--ink-3)" font-family="JetBrains Mono,monospace">${fmt(v, digits)}</text>`).join('')}
-    <path d="${area}" fill="${color}" opacity=".1"/>
     <path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
     <circle cx="${x(points.length - 1).toFixed(1)}" cy="${y(last.v).toFixed(1)}" r="4" fill="${color}" stroke="var(--surface)" stroke-width="2"/>
     <text x="${L}" y="${H - 5}" font-size="10.5" fill="var(--ink-3)" font-family="JetBrains Mono,monospace">${dl(d0)}</text>

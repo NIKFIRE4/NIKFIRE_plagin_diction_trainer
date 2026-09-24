@@ -37,6 +37,7 @@ function renderNav() {
   $('#nav').innerHTML = NAV.map((n) => n.label ? `<div class="nav-label">${n.label}</div>` : `<button data-go="${n.r}" ${cur === n.r ? 'aria-current="page"' : ''}>${ico(n.i)}<span>${n.t}</span></button>`).join('');
   const s = Store.streak();
   $('#streak').innerHTML = `<b>${s}</b> ${plural(s, 'день', 'дня', 'дней')} подряд`;
+  const tm = Math.round(Store.d.days[dayKey()] || 0); $('#todayMin').textContent = tm ? `сегодня ${tm} мин` : 'сегодня ещё не занимались';
 }
 
 /* ---------- микрофон в шапке ---------- */
@@ -97,6 +98,7 @@ function render() {
   else if (r === 'progress') { crumb = 'Прогресс'; viewProgress(v); }
   else if (r === 'method') { crumb = 'Методика'; viewMethod(v); }
   else if (r === 'settings') { crumb = 'Настройки'; viewSettings(v); }
+  else if (r === 'done') { crumb = 'Итог занятия'; viewSummary(v); }
   else if (r.startsWith('sec-')) { const s = SECTIONS.find((x) => x.id === r.slice(4)); if (!s) return go('home'); crumb = s.title; viewSection(v, s); }
   else if (r.startsWith('ex-')) { const ex = exById(r.slice(3)); if (!ex) return go('home'); const s = SECTIONS.find((x) => x.id === ex.sec); crumb = (s ? s.title + ' · ' : '') + ex.title; viewExercise(v, ex); }
   else return go('home');
@@ -298,8 +300,8 @@ function renderAiChip() {
   const c = $('#aichip'); if (!c) return;
   const a = App.ai, on = a.state === 'ok';
   c.dataset.state = a.state;
-  c.title = on ? (App.aiSource === 'cli' ? 'ИИ работает через ваш Claude CLI' : 'ИИ работает через Claude') : a.state === 'checking' ? 'Проверяю подключение ИИ…' : 'ИИ недоступен: ' + a.reason;
-  c.innerHTML = `<span class="ai-dot"></span><span>ИИ</span><span class="ai-st">${on ? (App.aiSource === 'cli' ? 'Claude CLI' : 'Claude') : a.state === 'checking' ? 'проверка…' : 'недоступен'}</span>`;
+  c.title = on ? (App.aiSource === 'cli' ? 'ИИ работает через ваш Claude CLI' : 'ИИ работает через Claude') : a.state === 'checking' ? 'Проверяю подключение ИИ…' : (a.state === 'none' ? 'ИИ выключен: ' : 'ИИ недоступен: ') + a.reason;
+  c.innerHTML = `<span class="ai-dot"></span><span>ИИ</span><span class="ai-st">${on ? (App.aiSource === 'cli' ? 'Claude CLI' : 'Claude') : a.state === 'checking' ? 'проверка…' : a.state === 'none' ? 'выключен' : 'недоступен'}</span>`;
 }
 let lastReconnect = 0;
 async function ensureAi() {
@@ -526,7 +528,7 @@ function buildPlan(pr) {
   const checking = !chk.t || chk.due || chk.today;
   if (!chk.t) {
     add('diag', { block: 'Исходный замер', why: 'Без исходной точки нельзя посчитать уровень навыков и прогноз', goal: '5 замеров за 4 минуты: фонация, S/Z, диапазон, чтение, скороговорка' });
-    add('long-s', { block: 'Первая тренировка', skill: 'breath', why: 'Дыхание — опора для всего остального: с него начинают все школы сценической речи', goal: 'Три попытки ровного «С-С-С», хороший результат — от 20 секунд' });
+    add('long-s', { block: 'Первая тренировка', skill: 'breath', why: 'Дыхание — опора для всего остального: с него начинают все школы сценической речи', goal: 'Три попытки ровного «С-С-С», цель — 25+ секунд' });
     add('twisters', { block: 'Первая тренировка', skill: 'diction', why: 'Распознавание покажет, какие звуки и слова у вас смазываются', goal: 'Этап «Медленно»: каждое слово должно подсветиться зелёным' });
   }
   else if (chk.due || chk.today) add('diag', { block: 'Контрольный замер недели', why: chk.today ? 'Замер сделан — фокус и прогноз пересчитаны' : `С прошлого замера прошло ${chk.days} ${plural(chk.days, 'день', 'дня', 'дней')} — пора сверить прогресс и пересчитать фокус`, goal: 'Те же 5 замеров — сравним с прошлой неделей' });
@@ -574,7 +576,7 @@ function forecastHead(pr) {
 }
 function forecastCard(pr) {
   const f = forecastHead(pr);
-  if (!f) return `<section class="panel stack fc"><span class="eyebrow">Прогноз</span><p>Прогноз появится, когда будут замеры хотя бы по трём навыкам. Быстрее всего — диагностика: 4 минуты.</p><div><button class="btn primary" data-go="diag">Пройти диагностику</button></div></section>`;
+  if (!f) return `<section class="panel stack fc"><span class="eyebrow">Прогноз</span><p>Прогноз появится, когда будут замеры хотя бы по трём навыкам. Быстрее всего — диагностика: 4 минуты.</p><div><button class="btn" data-go="diag">Пройти диагностику</button></div></section>`;
   return `<section class="panel stack fc"><div class="row" style="justify-content:space-between"><span class="eyebrow">Прогноз · неделя ${pr.week}</span><button class="btn ghost" data-go="program" style="min-height:0;padding:2px 6px;color:var(--accent)">Вся программа →</button></div>
     ${f.w === 0 ? '<div class="fc-big">Цели достигнуты</div><p class="small muted">Все измеренные навыки на хорошем уровне. Держите форму и повышайте сложность.</p>'
       : f.w ? `<div class="fc-big">≈ ${weeksT(f.w)}</div><p class="small">до хорошего уровня по всем навыкам — <b>к ${f.date}</b>, если заниматься 5 дней в неделю.</p>`
@@ -583,20 +585,24 @@ function forecastCard(pr) {
     <div class="skills-mini">${pr.views.map((x) => `<div class="${pr.focus.includes(x.s.id) ? 'focus' : ''}"><span class="n">${x.s.title}</span>${skillBar(x)}<span class="e">${etaText(pr, x)}</span></div>`).join('')}</div>
     ${f.miss.length ? `<p class="small muted">Без замера: ${f.miss.join(', ')} — они есть в плане.</p>` : ''}</section>`;
 }
+/* раздел тренировки → навык программы, чей уровень показываем на карточке раздела */
+const SEC_SKILL = { breath: 'breath', voice: 'voice', diction: 'diction', expr: 'expr', speech: 'fluency' };
 function viewHome(v) {
   const { pr, items } = todayPlan();
   const mins = items.reduce((a, it) => a + planMin(it), 0), done = items.filter((it) => Store.doneToday(it.id)).length;
+  const nextI = items.findIndex((it) => !Store.doneToday(it.id));
   const wd = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   const fT = pr.focus.map((id) => skillById(id).title.toLowerCase()).join(' и ');
   v.innerHTML = `
     ${micNotice()}
-    <div class="sec-head"><span class="eyebrow">${esc(wd)} · неделя ${pr.week} программы</span><h1 class="h1">Тренировка на сегодня</h1>
-      <p class="lead">${mins} минут. ${fT ? `Фокус недели — ${fT}: план собран по вашим замерам и меняется вместе с ними.` : 'Сначала — исходный замер: по нему план подстроится под ваши слабые места.'}</p></div>
+    <div class="sec-head"><h1 class="h1">Тренировка на сегодня</h1>
+      <p class="lead">${esc(wd[0].toUpperCase() + wd.slice(1))} · неделя ${pr.week}. ${fT ? `Фокус недели — ${fT}: план собран по вашим замерам и меняется вместе с ними.` : 'Сначала — исходный замер: по нему план подстроится под ваши слабые места.'}</p></div>
     <div class="hero">
-      <section class="panel lift plan">
-        <div class="row" style="justify-content:space-between"><h2 class="h2">План дня</h2><span class="small muted num">${done} из ${items.length}</span></div>
-        <ol class="plan-list">${items.map((it) => { const ex = exById(it.id); return `<li class="plan-item ${Store.doneToday(it.id) ? 'done' : ''}"><span class="check"></span><div><div class="t">${esc(planTitle(it))}</div><div class="s">${esc(it.block)} · ${planMin(it)} мин${it.id === 'diag' || (ex && ex.mic) ? ' · микрофон' : ''}</div>${it.why ? `<div class="why">${esc(it.why)}</div>` : ''}${it.goal ? `<div class="goal">${esc(it.goal)}</div>` : ''}</div><button class="open" data-go="${planRoute(it)}">Открыть</button></li>`; }).join('')}</ol>
-        <div class="row"><button class="btn primary big" id="startSession">${ico('play')}${done === items.length ? 'Повторить занятие' : done ? 'Продолжить занятие' : 'Начать занятие'}</button>${done === items.length ? '<span class="verdict good">План на сегодня выполнен</span>' : ''}<button class="btn ghost" id="replan" style="margin-left:auto" title="Собрать план заново по свежим замерам">Пересобрать</button></div>
+      <section class="panel plan">
+        <div class="plan-head"><div class="stack" style="gap:2px"><h2 class="h2">План дня</h2><span class="small muted num">${done} из ${items.length} · ${mins} мин</span></div>
+          <button class="btn primary big" id="startSession">${ico('play')}${done === items.length ? 'Повторить занятие' : done ? 'Продолжить занятие' : 'Начать занятие'}</button></div>
+        <ol class="plan-list">${items.map((it, i) => { const ex = exById(it.id), d = Store.doneToday(it.id), nx = i === nextI; return `<li class="plan-item${d ? ' done' : ''}${nx ? ' next' : ''}"><button class="plan-row" data-go="${planRoute(it)}"><span class="check" aria-hidden="true"></span><span class="pi"><span class="t">${esc(planTitle(it))}${d ? '<span class="sr"> — выполнено</span>' : ''}</span><span class="s">${esc(it.block)}${it.id === 'diag' || (ex && ex.mic) ? ' · микрофон' : ''}</span>${nx && it.why ? `<span class="why">${esc(it.why)}</span>` : ''}${nx && it.goal ? `<span class="goal">${esc(it.goal)}</span>` : ''}</span><span class="m num">${planMin(it)} мин</span></button></li>`; }).join('')}</ol>
+        <div class="row plan-foot">${done === items.length ? '<span class="verdict good">План на сегодня выполнен</span>' : ''}<button class="btn ghost" id="replan" title="Собрать план заново по свежим замерам">Пересобрать план</button></div>
       </section>
       <section class="stack">
         ${forecastCard(pr)}
@@ -608,11 +614,11 @@ function viewHome(v) {
       </section>
     </div>
     <section class="stack"><h2 class="h2">Разделы</h2>
-      <div class="grid3">${SECTIONS.map((s) => `<button class="panel ex-row" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;border:1px solid var(--line)" data-go="sec-${s.id}"><span class="t">${s.title}</span><span class="g">${esc(s.lead)}</span><span class="small muted">${EXERCISES.filter((e) => e.sec === s.id).length} упражнений</span></button>`).join('')}</div>
+      <div class="grid3">${SECTIONS.map((s) => { const x = SEC_SKILL[s.id] && pr.V(SEC_SKILL[s.id]); const n = EXERCISES.filter((e) => e.sec === s.id).length; return `<button class="sec-card" data-go="sec-${s.id}"><span class="t">${s.title}</span><span class="g">${esc(s.lead)}</span><span class="sec-foot">${x && x.v != null ? `${skillBar(x)}<span class="num">${Math.round(x.score)}%</span>` : ''}<span class="small muted">${n} ${plural(n, 'упражнение', 'упражнения', 'упражнений')}</span></span></button>`; }).join('')}</div>
     </section>`;
   $('#startSession').onclick = () => {
     const routes = items.map(planRoute), first = items.findIndex((it) => !Store.doneToday(it.id));
-    App.session = { items: routes, idx: first < 0 ? 0 : first };
+    App.session = { items: routes, idx: first < 0 ? 0 : first, t0: Date.now(), m0: Store.d.days[dayKey()] || 0 };
     go(routes[App.session.idx]);
   };
   $('#replan').onclick = () => { delete Store.d.plans[dayKey()]; Store.save(); go('home'); toast('План пересобран по свежим замерам'); };
@@ -621,8 +627,43 @@ function viewHome(v) {
 function sessionNext(skip) {
   if (!App.session) return go('home');
   App.session.idx++;
-  if (App.session.idx >= App.session.items.length) { App.session = null; if (!skip) toast('Занятие завершено. Отличная работа!'); go('home'); }
+  if (App.session.idx >= App.session.items.length) sessionEnd();
   else go(App.session.items[App.session.idx]);
+}
+/* конец занятия: итог, если за занятие что-то сделано, иначе — на главную */
+function sessionEnd() {
+  const s = App.session; App.session = null;
+  if (!s) return go('home');
+  const worked = (Store.d.days[dayKey()] || 0) > s.m0 || Object.values(Store.d.metrics).some((a) => a.some((p) => p.t >= s.t0));
+  App.summary = worked ? s : null;
+  go(worked ? 'done' : 'home');
+}
+/* ========== ИТОГ ЗАНЯТИЯ ========== */
+function viewSummary(v) {
+  const s = App.summary; if (!s) return go('home');
+  const pr = program(), { items } = todayPlan();
+  const done = items.filter((it) => Store.doneToday(it.id)).length, mins = Math.round((Store.d.days[dayKey()] || 0) - s.m0);
+  /* что измерили за занятие: последний замер навыка против предыдущего дня и цели недели */
+  const rows = pr.views.map((x) => {
+    const a = Store.d.metrics[x.s.metric] || [], now = a.filter((p) => p.t >= s.t0);
+    if (!now.length) return null;
+    const vals = now.map((p) => p.v), v0 = x.s.agg === 'max' ? Math.max(...vals) : x.s.lower || x.s.agg === 'min' ? Math.min(...vals) : vals.reduce((m, y) => m + y, 0) / vals.length;
+    const before = a.filter((p) => p.t < new Date().setHours(0, 0, 0, 0)), prev = before.length ? before[before.length - 1].v : null;
+    const d = prev == null ? null : v0 - prev, better = d == null ? null : x.s.band ? Math.abs(v0 - (x.s.band[0] + x.s.band[1]) / 2) < Math.abs(prev - (x.s.band[0] + x.s.band[1]) / 2) : x.s.lower ? d < 0 : d > 0;
+    return { x, v: v0, d, better, t: pr.weekTarget(x) };
+  }).filter(Boolean);
+  const chk = pr.chk, nextChk = !chk.t ? 'Исходного замера ещё нет — пройдите диагностику, чтобы появился прогноз.' : chk.due ? 'Пора сделать контрольный замер — он пересчитает фокус и прогноз.' : `Контрольный замер через ${7 - chk.days} ${plural(7 - chk.days, 'день', 'дня', 'дней')}.`;
+  v.innerHTML = `<div class="sec-head"><h1 class="h1">Занятие завершено</h1>
+      <p class="lead">${mins > 0 ? `${mins} мин · ` : ''}выполнено ${done} из ${items.length} пунктов плана.</p></div>
+    <section class="panel stack summary">
+      ${rows.length ? `<h2 class="h2">Что измерили сегодня</h2>
+      <div class="sum-list">${rows.map((r) => `<div class="sum-row"><div class="stack" style="gap:2px"><span class="h3">${r.x.s.title}</span><span class="small muted">${esc(r.x.s.what)}</span></div>
+        <div class="sum-v"><span class="val num">${fmt(r.v, r.x.s.dg)}<small>${r.x.s.unit}</small></span>${r.d == null ? '<span class="small muted">первый замер</span>' : `<span class="small ${r.better ? 'good' : 'muted'}"><span class="num">${r.d >= 0 ? '+' : '−'}${fmt(Math.abs(r.d), r.x.s.dg)}</span> к прошлому</span>`}</div>
+        <div class="sum-goal small">${r.t == null || r.x.reached ? `хороший уровень ${skillGoalText(r.x.s)}` : `цель недели ${r.x.s.band ? '' : r.x.s.lower ? '≤ ' : '≥ '}<b class="num">${skillVal(r.x.s, r.t)}</b><br><span class="muted">хороший уровень ${skillGoalText(r.x.s)}</span>`}</div></div>`).join('')}</div>`
+      : '<p>Сегодня без замеров — только тренировка. Цифры появятся в упражнениях с микрофоном.</p>'}
+      <p class="small muted">${nextChk}</p>
+      <div class="row"><button class="btn primary big" data-go="home">На сегодня всё</button><button class="btn ghost" data-go="progress">Все графики</button></div>
+    </section>`;
 }
 
 /* ========== МОЯ ПРОГРАММА ========== */
@@ -632,8 +673,8 @@ function viewProgram(v) {
   const shown = rows.slice(0, 12);
   const confT = (x) => x.conf === 'personal' ? `ваш темп: ${rateText(x.s, x.trend)}` : x.conf === 'stall' ? 'по замерам роста пока нет — прогноз осторожный' : x.v == null ? '' : `типичный темп; ваш — после 3 дней замеров`;
   const sz = Store.last('sz');
-  v.innerHTML = `<div class="sec-head"><span class="eyebrow">Неделя ${pr.week}${pr.focus.length ? ' · фокус: ' + pr.focus.map((id) => skillById(id).title.toLowerCase()).join(' и ') : ''}</span><h1 class="h1">Моя программа</h1>
-      <p class="lead">Шесть навыков, у каждого — измеримый показатель и цель «хороший уровень». План дня тренирует самые слабые, раз в неделю контрольный замер пересчитывает фокус и прогноз.</p></div>
+  v.innerHTML = `<div class="sec-head"><h1 class="h1">Моя программа</h1>
+      <p class="lead">Неделя ${pr.week}${pr.focus.length ? ', фокус — ' + pr.focus.map((id) => skillById(id).title.toLowerCase()).join(' и ') : ''}. Шесть навыков, у каждого — измеримый показатель и цель «хороший уровень». План дня тренирует самые слабые, раз в неделю контрольный замер пересчитывает фокус и прогноз.</p></div>
     ${sz > 1.4 ? `<div class="notice bad"><div style="flex:1"><b>Индекс S/Z — ${fmt(sz, 2)}.</b> Выше 1,4 бывает, когда связки смыкаются неплотно. Если есть осиплость дольше двух недель — покажитесь фониатру. До этого не форсируйте громкость.</div></div>` : ''}
     <section class="panel lift stack">
       <div class="fc-row"><div class="stack" style="gap:4px">
@@ -710,7 +751,7 @@ function bestLabel(ex) {
 function viewSection(v, s) {
   const list = EXERCISES.filter((e) => e.sec === s.id);
   v.innerHTML = `${list.some((e) => e.mic) ? micNotice() : ''}
-    <div class="sec-head"><span class="eyebrow">Раздел</span><h1 class="h1">${s.title}</h1><p class="lead">${esc(s.lead)}</p><p class="why">${esc(s.why)}</p></div>
+    <div class="sec-head"><h1 class="h1">${s.title}</h1><p class="lead">${esc(s.lead)}</p><p class="why">${esc(s.why)}</p></div>
     <div class="ex-list">${list.map((e) => `<button class="ex-row" data-go="ex-${e.id}"><div><div class="t">${esc(e.title)}</div><div class="g">${esc(e.goal)}</div></div><div class="meta"><span class="best">${bestLabel(e)}</span>${exTags(e)}</div></button>`).join('')}</div>`;
 }
 
@@ -719,13 +760,16 @@ function viewExercise(v, ex) {
   const s = SECTIONS.find((x) => x.id === ex.sec);
   const inSession = App.session && App.session.items[App.session.idx] === 'ex-' + ex.id;
   const sessBar = inSession ? `<div class="sessionbar"><span>Занятие · ${App.session.idx + 1} из ${App.session.items.length}</span><span class="bar"><i style="width:${(App.session.idx / App.session.items.length) * 100}%"></i></span><button id="sSkip">Пропустить</button><button id="sEnd">Завершить</button></div>` : '';
+  /* цель из сегодняшнего плана — чтобы не держать её в голове с главного экрана */
+  const pit = ((Store.d.plans[dayKey()] || {}).items || []).find((it) => it.id === ex.id && it.goal);
   v.innerHTML = `${sessBar}
     <div class="ex-top"><button class="back" data-go="${s ? 'sec-' + s.id : 'home'}">${ico('prev').replace('<svg', '<svg width="14" height="14" style="stroke:currentColor;fill:none;stroke-width:2"')} ${s ? s.title : 'Сегодня'}</button>
-      <h1 class="h1">${esc(ex.title)}</h1><p class="lead">${esc(ex.goal)}</p><div class="row">${exTags(ex)}</div></div>
+      <h1 class="h1">${esc(ex.title)}</h1><p class="lead">${esc(ex.goal)}</p><div class="row">${exTags(ex)}</div>
+      ${pit ? `<p class="goal-strip"><span class="eyebrow">Сегодня по плану</span><span>${esc(pit.goal)}</span></p>` : ''}</div>
     ${ex.mic ? micNotice() : ''}
-    <div class="ex-layout"><div class="stage" id="stage"></div>
-      <aside class="how panel"><span class="eyebrow">Как выполнять</span><ol>${ex.how.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></aside></div>
-    ${ex.type === 'coach' || ex.type === 'upload' ? '' : `<div class="row" style="justify-content:flex-end;gap:12px"><span class="small muted" id="doneNote"></span><button class="btn ${inSession ? 'primary big' : ''}" id="doneBtn">${inSession ? (App.session.idx + 1 < App.session.items.length ? 'Готово — дальше' : 'Завершить занятие') : 'Отметить выполненным'}</button></div>`}`;
+    <div class="ex-layout"><div class="stage-col"><div class="stage" id="stage"></div>
+      ${ex.type === 'coach' || ex.type === 'upload' ? '' : `<div class="row done-row"><span class="small muted" id="doneNote"></span><button class="btn${inSession ? ' big' : ''}" id="doneBtn">${inSession ? (App.session.idx + 1 < App.session.items.length ? 'Готово — дальше' : 'Завершить занятие') : 'Отметить выполненным'}</button></div>`}</div>
+      <aside class="how panel"><span class="eyebrow">Как выполнять</span><ol>${ex.how.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></aside></div>`;
   let marked = false;
   const ctx = {
     ex,
@@ -742,7 +786,7 @@ function viewExercise(v, ex) {
   const db = $('#doneBtn'); if (db) db.onclick = () => { ctx.mark(); if (inSession) ctx.next(); else { db.textContent = 'Выполнено ✓'; db.disabled = true; } };
   if (inSession) {
     $('#sSkip').onclick = () => sessionNext(true);
-    $('#sEnd').onclick = () => { App.session = null; go('home'); };
+    $('#sEnd').onclick = () => sessionEnd();
   }
   (W[ex.type] || (() => {}))($('#stage'), ex, ctx);
 }
@@ -772,7 +816,7 @@ W.guided = (root, ex, ctx) => {
   const say = () => { if (tt && tt.checked) { Voice.cancel(); Voice.speak(steps[i].t); } };
   const paint = () => {
     const s = steps[i];
-    now.textContent = finished ? 'Готово! Мышцы разогреты.' : s.t;
+    now.textContent = finished ? 'Готово. Мышцы разогреты.' : s.t;
     secEl.textContent = finished ? '✓' : Math.ceil(s.s - t);
     $('#gstep').textContent = finished ? 'все шаги' : `шаг ${i + 1} из ${steps.length}`;
     fg.style.strokeDashoffset = finished ? 0 : C * (t / s.s);
@@ -857,10 +901,10 @@ function makeSustain(el, { sound, pitch, onAttempt, max = 60 }) {
   el.innerHTML = `<div class="center">
     <div class="sound-label">Звук «${sound}»</div>
     <div class="big-num num"><span class="sv">0,0</span><small>с</small></div>
-    <div class="small muted sst" style="min-height:1.5em">Нажмите «Начать», вдохните и тяните звук</div>
+    <div class="small muted sst" role="status" style="min-height:1.5em">Нажмите «Начать», вдохните и тяните звук</div>
     ${pitch ? '<div class="num small sp" style="min-height:1.5em;color:var(--ink-2)">—</div>' : ''}
     <div class="meter"><i class="sm" style="width:0"></i></div>
-    <div class="row" style="justify-content:center"><button class="btn primary big sgo">${ico('mic')}Начать</button>
+    <div class="row" style="justify-content:center"><button class="btn primary big rec-btn sgo">${ico('mic')}Начать</button>
     <button class="btn big shold" ${Mic.state === 'on' && !App.framed ? 'hidden' : ''}>Удерживайте, пока звучите</button></div>
     <div class="attempts satt"></div></div>`;
   const sv = $('.sv', el), sst = $('.sst', el), sm = $('.sm', el), sp = $('.sp', el), go_ = $('.sgo', el), hold = $('.shold', el), att = $('.satt', el);
@@ -873,7 +917,7 @@ function makeSustain(el, { sound, pitch, onAttempt, max = 60 }) {
     const a = { dur, medHz, sdSt }; attempts.push(a);
     const best = Math.max(...attempts.map((x) => x.dur));
     att.innerHTML = attempts.map((x) => `<span class="attempt ${x.dur === best ? 'best' : ''}">${fmt(x.dur)} с</span>`).join('');
-    sst.textContent = `Попытка ${attempts.length}: ${fmt(dur)} с${attempts.length > 1 && dur === best ? ' — лучший результат!' : ''}`;
+    sst.textContent = `Попытка ${attempts.length}: ${fmt(dur)} с${attempts.length > 1 && dur === best ? ' — лучший результат' : ''}`;
     onAttempt && onAttempt(a, attempts);
   };
   const off = Mic.on((f) => {
@@ -902,6 +946,8 @@ function makeSustain(el, { sound, pitch, onAttempt, max = 60 }) {
   const hdown = (e) => { e.preventDefault(); ht = performance.now(); hzs = []; hold.textContent = 'Звучу…'; hi = setInterval(() => (sv.textContent = fmt((performance.now() - ht) / 1000)), 100); };
   const hup = () => { if (!ht) return; clearInterval(hi); const d = (performance.now() - ht) / 1000; ht = 0; hold.textContent = 'Удерживайте, пока звучите'; addAttempt(d); };
   hold.addEventListener('pointerdown', hdown); hold.addEventListener('pointerup', hup); hold.addEventListener('pointerleave', hup);
+  hold.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && !ht) hdown(e); });
+  hold.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') hup(); });
   onLeave(() => { off(); clearInterval(hi); });
   return { attempts };
 }
@@ -937,7 +983,7 @@ W.sustain = (root, ex, ctx) => {
         const [cls, txt] = verdictMPT(best, metric);
         res.innerHTML = `<div class="row" style="justify-content:space-between"><span class="eyebrow">Результат</span><span class="verdict ${cls}">${txt}</span></div>
           ${normScale(metric, best)}
-          <p class="small muted" style="margin-top:8px">Лучшее сегодня: <b class="num">${fmt(best)} с</b>${rec ? ' — новый личный рекорд!' : ` · рекорд: ${fmt(Store.d.best[metric])} с`}. ${metric === 'mpt' ? `Норма для взрослых: ${NORMS.mpt[Store.d.settings.sex].join('–')} с.` : 'Хороший результат — от 20 секунд, отличный — 30+.'}</p>`;
+          <p class="small muted" style="margin-top:8px">Лучшее сегодня: <b class="num">${fmt(best)} с</b>${rec ? ' — новый личный рекорд' : ` · рекорд: ${fmt(Store.d.best[metric])} с`}. ${metric === 'mpt' ? `Норма для взрослых: ${NORMS.mpt[Store.d.settings.sex].join('–')} с.` : 'Хороший результат — от 20 секунд, отличный — 30+.'}</p>`;
         if (best > sessionBest) { sessionBest = best; }
       } else if (metric === 'basePitch') {
         if (!(a.medHz > 0)) { res.innerHTML = '<p class="small">Не удалось определить высоту — тяните «М» чуть громче и дольше.</p>'; return; }
@@ -977,7 +1023,7 @@ W.sz = (root, ex, ctx) => {
 /* ---- диапазон ---- */
 W.range = (root, ex, ctx) => {
   root.innerHTML = `<div class="panel lift stack"><div class="cv-wrap"><canvas id="rcv" style="height:220px"></canvas><span class="over" id="rover">готов к записи</span></div>
-    <div class="row"><button class="btn primary big" id="rgo">${ico('mic')}Начать замер</button><span class="small muted" id="rst">До 12 секунд. Снизу вверх и обратно.</span></div></div>
+    <div class="row"><button class="btn primary big rec-btn" id="rgo">${ico('mic')}Начать замер</button><span class="small muted" id="rst">До 12 секунд. Снизу вверх и обратно.</span></div></div>
     <div class="panel stack" id="rres" hidden></div>`;
   const cv = $('#rcv'); let pts = [], running = false, t0 = 0, off = null, raf = 0;
   const draw = () => {
@@ -1023,7 +1069,7 @@ W.pitch = (root, ex, ctx) => {
   const base = Store.basePitch();
   root.innerHTML = `<div class="panel lift stack">
     <div class="cv-wrap"><canvas id="pcv"></canvas><span class="over" id="pover">опорная нота ${base} Гц · ${noteName(base)}</span></div>
-    <div class="row"><button class="btn primary big" id="pgo">${ico('mic')}Начать</button><button class="btn" id="plisten">${ico('speak')}Послушать образец</button>
+    <div class="row"><button class="btn primary big rec-btn" id="pgo">${ico('mic')}Начать</button><button class="btn" id="plisten">${ico('speak')}Послушать образец</button>
     <span class="small muted" id="pst">${c.rounds} ${plural(c.rounds, 'раунд', 'раунда', 'раундов')} по ${fmt(D, 1)} с</span></div>
     <p class="small muted">Опорная нота — ${Store.d.settings.basePitch ? 'ваша удобная высота' : 'типичная для ' + (Store.d.settings.sex === 'f' ? 'женского' : 'мужского') + ' голоса'}. <button class="btn ghost small" data-go="ex-optimal" style="min-height:0;padding:2px 6px">Определить свою</button> Октавные ошибки не штрафуются: петь можно в любой октаве.</p></div>
     <div class="panel stack" id="pres" hidden></div>`;
@@ -1106,12 +1152,12 @@ W.volume = (root, ex, ctx) => {
       <div id="vbar" style="position:absolute;left:0;top:18px;height:20px;border-radius:0 6px 6px 0;background:var(--accent);width:0;transition:width .06s"></div></div>
     <div class="meter" style="height:6px"><i id="vhold" style="width:0;background:var(--good)"></i></div>
     <div class="small muted" id="vst">Нажмите «Начать»</div>
-    <button class="btn primary big" id="vgo">${ico('mic')}Начать</button></div>`;
+    <button class="btn primary big rec-btn" id="vgo">${ico('mic')}Начать</button></div>`;
   let running = false, off = null, stage = -1, calib = [], L0 = 0, holdT = 0, lastT = 0;
   const lo = () => L0 - 20, hi = () => L0 + 16, px = (db) => clamp((db - lo()) / (hi() - lo()), 0, 1) * 100;
   const setStage = (k) => {
     stage = k; holdT = 0; if (k >= 2) ctx.mark(); $('#vhold').style.width = '0';
-    if (k >= LEVELS.length) { running = false; off && off(); $('#vname').textContent = 'Готово! Вы прошли все уровни громкости.'; $('#vstage').textContent = 'Финиш'; $('#vband').style.display = 'none'; $('#vgo').innerHTML = `${ico('mic')}Ещё раз`; Snd.ok(); ctx.mark(); Store.hist('Проекция голоса: все 5 уровней'); return; }
+    if (k >= LEVELS.length) { running = false; off && off(); $('#vname').textContent = 'Готово. Вы прошли все уровни громкости.'; $('#vstage').textContent = 'Финиш'; $('#vband').style.display = 'none'; $('#vgo').innerHTML = `${ico('mic')}Ещё раз`; Snd.ok(); ctx.mark(); Store.hist('Проекция голоса: все 5 уровней'); return; }
     const L = LEVELS[k]; $('#vstage').textContent = `Уровень ${k + 1} из ${LEVELS.length}`; $('#vname').textContent = L.n;
     const band = $('#vband'); band.style.display = 'block'; band.style.left = px(L0 + L.d - 3) + '%'; band.style.width = (px(L0 + L.d + 3) - px(L0 + L.d - 3)) + '%';
     $('#vst').textContent = 'Держите громкость в зоне 3 секунды — говорите счёт или тяните «А»';
@@ -1144,7 +1190,7 @@ W.volume = (root, ex, ctx) => {
 /* ---- свеча ---- */
 W.candle = (root, ex, ctx) => {
   root.innerHTML = `<div class="panel lift stack"><div class="cv-wrap"><canvas id="ccv" style="height:280px"></canvas><span class="over" id="cover"></span></div>
-    <div class="row"><button class="btn primary big" id="cgo">${ico('mic')}Начать</button><span class="small muted" id="cst">Дуйте ровно, не гасите пламя</span></div>
+    <div class="row"><button class="btn primary big rec-btn" id="cgo">${ico('mic')}Начать</button><span class="small muted" id="cst">Дуйте ровно, не гасите пламя</span></div>
     <div class="attempts" id="catt" style="justify-content:flex-start"></div></div><div class="panel stack" id="cres" hidden></div>`;
   const cv = $('#ccv'); let running = false, off = null, raf = 0, I = 0, flick = 0, state = 'idle', st0 = 0, below = 0, above = 0, samples = [], out = 0, outT = 0;
   const atts = [];
@@ -1226,8 +1272,8 @@ W.twister = (root, ex, ctx) => {
         <button class="btn ghost" id="tprev" aria-label="Предыдущая">${ico('prev')}</button><button class="btn ghost" id="trand" aria-label="Случайная">${ico('shuffle')}</button><button class="btn ghost" id="tnext" aria-label="Следующая">${ico('next')}</button></div></div>
       <div class="tw-card" id="tcard"></div>
       ${c.single == null ? `<div class="stages" id="tstages">${STAGES.map((s, i) => `<button data-s="${i}" aria-pressed="${i === stage}"><b>${i + 1}. ${s.n}</b>${s.d}</button>`).join('')}</div>` : ''}
-      <div class="row"><button class="btn primary big" id="tgo">${ico('mic')}Проверить</button>${Voice.available() ? `<button class="btn" id="tsay">${ico('speak')}Образец</button>` : ''}
-        ${lib && App.sample ? `<button class="btn ghost" id="tai">Новая от ИИ</button>` : ''}<span class="small muted" id="tst"></span></div>
+      <div class="row"><button class="btn primary big rec-btn" id="tgo">${ico('mic')}Проверить</button>${Voice.available() ? `<button class="btn" id="tsay">${ico('speak')}Образец</button>` : ''}
+        ${lib && App.sample ? `<button class="btn ghost" id="tai">Новая от ИИ</button>` : ''}<span class="small muted" id="tst" role="status"></span></div>
       <div class="heard" id="theard" hidden><b>Распознано</b><span id="ttext"></span></div>
       <audio id="taudio" controls hidden style="width:100%"></audio>
     </div>
@@ -1250,7 +1296,7 @@ W.twister = (root, ex, ctx) => {
   $('#tprev').onclick = () => nav(-1); $('#tnext').onclick = () => nav(1); $('#trand').onclick = () => nav('r');
   if ($('#tstages')) $('#tstages').onclick = (e) => { const b = e.target.closest('[data-s]'); if (!b) return; stage = +b.dataset.s; $$('#tstages button').forEach((x) => x.setAttribute('aria-pressed', x === b)); reset(); };
   if ($('#tsay')) $('#tsay').onclick = () => { const s = STAGES[stage]; Voice.cancel(); Voice.speak(Array(s.reps).fill(cur().t).join(' '), { rate: s.rate }); };
-  $('#tself').onclick = (e) => { const b = e.target.closest('[data-r]'); if (!b) return; const r = +b.dataset.r; ctx.mark(); Store.best('tw:' + cur().t, [0, 30, 65, 95][r]); toast(r === 3 ? 'Отлично! Переходите к следующему этапу.' : 'Повторите медленнее, затем снова в темпе.'); paint(); };
+  $('#tself').onclick = (e) => { const b = e.target.closest('[data-r]'); if (!b) return; const r = +b.dataset.r; ctx.mark(); Store.best('tw:' + cur().t, [0, 30, 65, 95][r]); toast(r === 3 ? 'Чисто. Переходите к следующему этапу.' : 'Повторите медленнее, затем снова в темпе.'); paint(); };
   const finish = async () => {
     if (!take) return; clearInterval(timer);
     $('#tgo').disabled = true; $('#tst').textContent = 'Обрабатываю…';
@@ -1436,13 +1482,13 @@ W.reading = (root, ex, ctx) => {
     ${mode === 'cork' ? '<div class="phase-tabs" id="rph"><span>1. Без пробки</span><span>2. С пробкой, 2 мин</span><span>3. Снова без пробки</span></div>' : ''}
     <div id="rtext">${textHTML()}</div>
     ${mode === 'count' ? '<div class="center"><div class="big-num num" id="rcount">0</div><div class="small muted">досчитали до</div></div>' : ''}
-    <div class="row"><button class="btn primary big" id="rgo">${ico('mic')}Читать</button><span class="timer-big num" id="rtime" hidden>0:00</span><span class="small muted" id="rst"></span></div>
+    <div class="row"><button class="btn primary big rec-btn" id="rgo">${ico('mic')}Читать</button><span class="timer-big num" id="rtime" hidden>0:00</span><span class="small muted" id="rst"></span></div>
     <div class="heard" id="rheard" hidden><b>Распознано</b><span id="rtxt"></span></div>
     ${mode === 'count' ? '<div class="row small"><label for="rman">Или введите вручную:</label><input id="rman" type="number" min="1" max="200" style="width:90px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--surface)"><button class="btn" id="rmanok">Сохранить</button></div>' : ''}
   </div><div class="panel stack" id="rres" hidden></div>`;
   const setPhase = () => { if (mode !== 'cork') return; $$('#rph span').forEach((s, i) => (s.className = i < phase ? 'done' : i === phase ? 'cur' : '')); $('#rgo').innerHTML = phase === 1 ? `${ico('play')}Старт: 2 минуты с пробкой` : `${ico('mic')}Читать`; };
   setPhase();
-  const saveCount = (n) => { if (!(n > 0)) return; Store.log('count', n); const rec = Store.best('count', n); ctx.mark(); $('#rcount') && ($('#rcount').textContent = n); $('#rres').hidden = false; $('#rres').innerHTML = `<span class="eyebrow">Результат</span><p>Досчитали до <b class="num">${n}</b>${rec ? ' — новый рекорд!' : ` · рекорд: ${Store.d.best.count}`}. Норма — 20–30, хорошо — 35 и больше.</p>`; Store.hist(`Счёт на выдохе: ${n}`); };
+  const saveCount = (n) => { if (!(n > 0)) return; Store.log('count', n); const rec = Store.best('count', n); ctx.mark(); $('#rcount') && ($('#rcount').textContent = n); $('#rres').hidden = false; $('#rres').innerHTML = `<span class="eyebrow">Результат</span><p>Досчитали до <b class="num">${n}</b>${rec ? ' — новый рекорд' : ` · рекорд: ${Store.d.best.count}`}. Норма — 20–30, хорошо — 35 и больше.</p>`; Store.hist(`Счёт на выдохе: ${n}`); };
   if (mode === 'count') $('#rmanok').onclick = () => saveCount(+$('#rman').value);
   const parseCount = (t) => {
     let mx = 0; const w = normWords(t);
@@ -1535,7 +1581,7 @@ W.intonation = (root, ex, ctx) => {
   root.innerHTML = `<div class="panel lift stack center">
     ${stress ? '<span class="small muted" id="imode"></span>' : '<span class="emo" id="iemo"></span>'}
     <div class="phrase" id="iphr"></div>
-    <div class="row" style="justify-content:center"><button class="btn primary big" id="igo">${ico('mic')}Записать</button>
+    <div class="row" style="justify-content:center"><button class="btn primary big rec-btn" id="igo">${ico('mic')}Записать</button>
       ${stress ? '<button class="btn" id="ibase">Записать нейтрально</button>' : ''}
       <button class="btn" id="inext">${stress ? 'Следующее слово' : 'Другой смысл'}</button><button class="btn ghost" id="iphrase">Другая фраза</button></div>
     <span class="small muted" id="ist"></span></div>
@@ -1659,7 +1705,7 @@ W.speech = (root, ex, ctx) => {
     <div class="tw-card" id="stopic"></div>
     <div class="row"><div class="chips" id="sdur">${[60, 90, 120].map((d) => `<button class="chip" data-d="${d}" aria-pressed="${d === dur}">${d} с</button>`).join('')}</div>
       <span class="timer-big num" id="stime" style="margin-left:auto">${mmss(dur)}</span></div>
-    <div class="row"><button class="btn primary big" id="sgo">${ico('mic')}Говорить</button><span class="small muted" id="sst"></span>
+    <div class="row"><button class="btn primary big rec-btn" id="sgo">${ico('mic')}Говорить</button><span class="small muted" id="sst"></span>
     ${nofill ? '<span class="verdict good" id="sscore" style="margin-left:auto">Паразитов: 0</span>' : ''}</div>
     <div class="transcript" id="strans"><span class="muted">Здесь появится текст вашей речи.</span></div>
   </div>
@@ -1700,7 +1746,7 @@ W.speech = (root, ex, ctx) => {
       <div><span class="k">Паразиты</span><span class="v">${f.count}</span><span class="n muted">${fmt(perMin, 1)} в минуту</span></div>
       ${sum ? `<div><span class="k">Мелодика</span><span class="v">${fmt(sum.mono)}<small>пт</small></span><span class="n ${sum.mono < 2 ? 'bad' : 'good'}">${sum.mono < 2 ? 'монотонно' : isFinite(sum.mono) ? 'живо' : ''}</span></div><div><span class="k">Долгие паузы</span><span class="v">${sum.longPauses}</span><span class="n muted">дольше 2 с</span></div>` : ''}</div>
       ${words < 20 ? `<p class="small warn">Всего ${words} ${plural(words, 'слово', 'слова', 'слов')} — по такому объёму метрики ненадёжны. Говорите хотя бы 40–60 секунд.</p>` : ''}
-      ${top.length ? `<div class="fill-list">${top.map(([k, n]) => `<span>${esc(k)}<b>${n}</b></span>`).join('')}</div>` : (words >= 20 ? '<p class="small good">Ни одного слова-паразита. Так держать!</p>' : '')}
+      ${top.length ? `<div class="fill-list">${top.map(([k, n]) => `<span>${esc(k)}<b>${n}</b></span>`).join('')}</div>` : (words >= 20 ? '<p class="small good">Ни одного слова-паразита.</p>' : '')}
       ${url ? `<audio controls src="${url}" style="width:100%"></audio>` : ''}
       <p class="small muted">«Вот», «ну», «значит» иногда уместны — считаются все вхождения, судите по контексту. Длинные паузы (дольше 2 с) обычно означают потерю мысли.</p>
       <div id="spAi"></div>`;
@@ -1827,7 +1873,7 @@ W.dialog = (root, ex, ctx) => {
       <div class="row" style="justify-content:space-between"><span class="eyebrow" id="dTitle"></span><span class="verdict" id="dPhase"></span></div>
       <div class="chat" id="dChat" style="max-height:460px"></div>
       <div class="meter" style="height:6px"><i id="dLvl" style="width:0;background:var(--tally)"></i></div>
-      <div class="row"><button class="btn primary" id="dMain">${ico('mic')}Говорить</button><button class="btn" id="dSkipTts" hidden>Перебить</button>
+      <div class="row"><button class="btn primary rec-btn" id="dMain">${ico('mic')}Говорить</button><button class="btn" id="dSkipTts" hidden>Перебить</button>
         <button class="btn ghost" id="dEnd" style="margin-left:auto">Завершить и разобрать</button></div>
       <form class="composer" id="dForm"><textarea id="dText" rows="1" placeholder="Или напишите ответ текстом…" aria-label="Ответ текстом"></textarea><button class="btn" type="submit">Отправить</button></form>
     </div>
@@ -2121,7 +2167,7 @@ function viewDiag(v) {
   const draw = () => {
     App.leave.splice(0).forEach((f) => { try { f(); } catch (e) {} });
     const done = i >= DIAG_STEPS.length;
-    v.innerHTML = `${micNotice()}<div class="sec-head"><span class="eyebrow">3–4 минуты</span><h1 class="h1">Диагностика голоса и речи</h1><p class="lead">Пять замеров, которые используют логопеды и тренеры речи. Повторяйте раз в 2–3 недели, чтобы видеть прогресс.</p></div>
+    v.innerHTML = `${micNotice()}<div class="sec-head"><h1 class="h1">Диагностика голоса и речи</h1><p class="lead">Пять замеров за 3–4 минуты — те, что используют логопеды и тренеры речи. Раз в 7 дней повторяйте их как контрольный замер: по нему пересчитываются фокус и прогноз.</p></div>
       <div class="diag-steps">${DIAG_STEPS.map((s, k) => `<div class="${skipped.has(k) ? 'skip' : k < i ? 'done' : k === i ? 'cur' : ''}"><b>${s.title}</b>${skipped.has(k) ? 'пропущено' : s.sub}</div>`).join('')}</div>
       <div id="dstage"></div>`;
     if (done) return summary();
@@ -2233,7 +2279,7 @@ function viewProgress(v) {
     ['count', 'Счёт на выдохе', '', 'max', [30, 45], 0, 'ex-count'],
   ];
   const withData = M.filter(([k]) => daily(k).length), empty = M.filter(([k]) => !daily(k).length);
-  v.innerHTML = `<div class="sec-head"><span class="eyebrow">Все замеры по дням</span><h1 class="h1">Прогресс</h1><p class="lead">Зелёная полоса на графиках — ориентир нормы. Данные хранятся в этом браузере; перенести их в другую копию тренажёра можно в <button class="btn ghost" data-go="settings" style="min-height:0;padding:0 4px;color:var(--accent);font-size:inherit">Настройках</button>.</p></div>
+  v.innerHTML = `<div class="sec-head"><h1 class="h1">Прогресс</h1><p class="lead">Зелёная полоса на графиках — ориентир нормы. Данные хранятся в этом браузере; перенести их в другую копию тренажёра можно в <button class="btn ghost" data-go="settings" style="min-height:0;padding:0 0 0 4px;color:var(--accent);font-size:inherit">Настройках</button>.</p></div>
     <div class="stats" style="grid-template-columns:repeat(3,minmax(0,1fr))">
       <div class="stat"><span class="k">Серия</span><span class="v">${Store.streak()}<small>${plural(Store.streak(), 'день', 'дня', 'дней')}</small></span></div>
       <div class="stat"><span class="k">За 7 дней</span><span class="v">${Store.weekMinutes()}<small>мин</small></span></div>
@@ -2241,7 +2287,7 @@ function viewProgress(v) {
     <div class="panel"><div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="eyebrow">Активность</span><span class="small muted">12 недель</span></div>${heatmap()}</div>
     ${withData.length ? `<div class="grid2">${withData.map(([k, l, u, mode, band, dg]) => { const pts = daily(k, mode), last = pts[pts.length - 1].v, first = pts[0].v; return `<div class="panel chart-card"><div class="top"><span class="h3">${l}</span><span class="cur num">${fmt(last, dg)} <span class="small muted">${u}</span></span></div>${pts.length > 1 ? `<span class="small muted">с первого замера: ${last - first >= 0 ? '+' : ''}${fmt(last - first, dg)} ${u}</span>` : '<span class="small muted">первый замер — линия появится со второго дня</span>'}${lineChart(pts, { band, digits: dg })}</div>`; }).join('')}</div>` : ''}
     ${empty.length ? `<div class="panel stack"><span class="eyebrow">Ещё нет замеров</span><div class="chips">${empty.map(([k, l, , , , , r]) => `<button class="chip" data-go="${r}">${l} →</button>`).join('')}</div><p class="small muted">Графики появятся после первых попыток. Быстрее всего получить основные замеры — пройти диагностику.</p></div>` : ''}
-    <section class="panel stack"><h2 class="h2">История</h2>${Store.d.history.length ? `<table class="hist"><tbody>${Store.d.history.slice(0, 30).map((x) => { const d = new Date(x.t); return `<tr><td>${d.getDate()}.${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}</td><td style="font-family:var(--f-body);text-align:left;font-size:13.5px">${esc(x.text)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">Пока пусто</div>'}</section>`;
+    <section class="panel stack"><h2 class="h2">История</h2>${Store.d.history.length ? `<table class="hist"><tbody>${Store.d.history.slice(0, 30).map((x) => { const d = new Date(x.t); return `<tr><td>${d.getDate()}.${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}</td><td style="font-family:var(--f-body);text-align:left;font-size:14px">${esc(x.text)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">Пока пусто</div>'}</section>`;
 }
 
 /* ========== НАСТРОЙКИ ========== */
@@ -2319,7 +2365,7 @@ function mountVoiceSettings(el) {
 }
 function viewSettings(v) {
   const s = Store.d.settings;
-  v.innerHTML = `<div class="sec-head"><span class="eyebrow">Звукоряд</span><h1 class="h1">Настройки</h1></div>
+  v.innerHTML = `<div class="sec-head"><h1 class="h1">Настройки</h1></div>
     <div class="grid2" style="align-items:start">
       <div class="stack" style="gap:16px">
         <section class="panel stack"><h2 class="h2">Голос и нормы</h2>
@@ -2383,7 +2429,7 @@ function viewMethod(v) {
     ['ELSA / BoldVoice', 'Проверка произношения по звукам. → Здесь: проверка скороговорок распознаванием с подсветкой слов.'],
     ['Articulated', 'Короткие ежедневные дриллы и серии. → Здесь: серия дней, тепловая карта, «Минута без паразитов».'],
   ];
-  v.innerHTML = `<div class="sec-head"><span class="eyebrow">На чём построен тренажёр</span><h1 class="h1">Методика</h1><p class="lead">Ежедневное занятие собирается по вашим замерам: разминка → два самых слабых навыка (тренировка и замер) → поддержка остальных → живая речь. 15–20 минут в день дают заметный результат за 3–4 недели, срок до хорошего уровня — в «Моей программе».</p></div>
+  v.innerHTML = `<div class="sec-head"><h1 class="h1">Методика</h1><p class="lead">Ежедневное занятие собирается по вашим замерам: разминка → два самых слабых навыка (тренировка и замер) → поддержка остальных → живая речь. 15–20 минут в день дают заметный результат за 3–4 недели, срок до хорошего уровня — в «Моей программе».</p></div>
     <section class="panel"><dl style="margin:0">${methods.map(([t, d, r]) => `<div class="method"><dt>${t}</dt><dd>${d} <button class="btn ghost" data-go="${r}" style="min-height:0;padding:0 4px;font-size:13px;color:var(--accent)">Открыть →</button></dd></div>`).join('')}</dl></section>
     <section class="stack"><h2 class="h2">Что взято у аналогов</h2><div class="analog">${analogs.map(([n, d]) => `<div><b>${n}</b>${d}</div>`).join('')}</div></section>
     <section class="panel stack"><h2 class="h2">Ориентиры</h2>
@@ -2422,6 +2468,22 @@ function viewMethod(v) {
 /* ========== СТАРТ ========== */
 function boot() {
   initMicChip(); renderAiChip();
+  /* лампа эфира: пока кнопка записи в режиме «стоп», её панель горит янтарным */
+  const onAir = () => {
+    const live = new Set();
+    $$('.rec-btn').forEach((b) => { const on = !!b.querySelector('rect[x="6"][y="6"]'); b.classList.toggle('is-live', on); const p = b.closest('.panel'); if (on && p) live.add(p); });
+    $$('.panel.on-air').forEach((p) => { if (!live.has(p)) p.classList.remove('on-air'); });
+    live.forEach((p) => p.classList.add('on-air'));
+  };
+  new MutationObserver(onAir).observe(view(), { subtree: true, childList: true });
+  /* пробел — старт/стоп записи, когда фокус не в поле и не на кнопке */
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest && e.target.closest('input,textarea,select,button,a,summary,label,[contenteditable]')) return;
+    const b = $$('#view .rec-btn').find((x) => !x.disabled && x.offsetParent);
+    if (b) { e.preventDefault(); b.click(); }
+  });
+  $('#skip').onclick = () => { const v = view(); v.tabIndex = -1; v.focus(); };
   const hash = (location.hash || '').slice(1);
   App.route = hash && (NAV.some((n) => n.r === hash) || (hash.startsWith('ex-') && exById(hash.slice(3))) || hash.startsWith('sec-')) ? hash : 'home';
   render();

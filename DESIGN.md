@@ -9,11 +9,11 @@ colors:
   on-air-amber: "#E48A00"
   on-air-amber-dark: "#F4A62A"
   on-air-amber-wash: "#FDF0DA"
-  level-green: "#1D8657"
+  level-green: "#17744B"
   level-green-dark: "#48C38B"
   level-green-wash: "#DDF2E7"
-  caution-ochre: "#B87D00"
-  clip-red: "#C43E2C"
+  caution-ochre: "#8A5D00"
+  clip-red: "#B03524"
   clip-red-dark: "#F07361"
   clip-red-wash: "#FBE3DF"
   booth-mist: "#EDF0F3"
@@ -25,7 +25,8 @@ colors:
   ink: "#131C26"
   ink-night: "#E3E9EF"
   ink-secondary: "#48545F"
-  ink-tertiary: "#77828D"
+  ink-tertiary: "#5F6B76"
+  ink-tertiary-night: "#85919C"
   rule: "#D7DDE3"
   rule-soft: "#E6EAEE"
 typography:
@@ -51,14 +52,36 @@ typography:
     lineHeight: 1.5
   lead:
     fontFamily: "Onest, system-ui, sans-serif"
-    fontSize: "16.5px"
+    fontSize: "17px"
     fontWeight: 400
     lineHeight: 1.5
+  ui:
+    fontFamily: "Onest, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 500
+  meta:
+    fontFamily: "Onest, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
   label:
     fontFamily: "Onest, system-ui, sans-serif"
     fontSize: "12px"
     fontWeight: 500
     letterSpacing: "0.1em"
+  label-xs:
+    fontFamily: "Onest, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 500
+    letterSpacing: "0.09em"
+  stat:
+    fontFamily: "Unbounded, Onest, system-ui, sans-serif"
+    fontSize: "22px"
+    fontWeight: 500
+    letterSpacing: "-0.02em"
+  timer:
+    fontFamily: "JetBrains Mono, ui-monospace, Consolas, monospace"
+    fontSize: "44px"
+    fontWeight: 500
   readout:
     fontFamily: "Unbounded, Onest, system-ui, sans-serif"
     fontSize: "clamp(52px, 9vw, 88px)"
@@ -67,7 +90,7 @@ typography:
     letterSpacing: "-0.04em"
   mono:
     fontFamily: "JetBrains Mono, ui-monospace, SFMono-Regular, Consolas, monospace"
-    fontSize: "12.5px"
+    fontSize: "13px"
     fontWeight: 400
     fontFeature: "tnum"
 rounded:
@@ -156,7 +179,7 @@ components:
 - **Синяя подложка** (signal-blue-wash): фон активного пункта меню, текущего шага, блоков ИИ-разбора.
 
 ### Secondary
-- **Лампа эфира** (on-air-amber / on-air-amber-dark): микрофон включён, идёт запись, метроном, бит. Кнопка записи. Тег «микрофон».
+- **Лампа эфира** (on-air-amber / on-air-amber-dark): только микрофон и запись. Пока идёт запись, панель сцены получает янтарную рамку и метку «ЗАПИСЬ» на линии рамки, кнопка «Стоп» становится янтарной. Тег «микрофон», точка микрофона в шапке. Не для прогресса, метронома и слабых навыков.
 - **Янтарная подложка** (on-air-amber-wash): фон тегов микрофона, «почти правильных» слов, мягких предупреждений.
 
 ### Tertiary
@@ -189,8 +212,9 @@ components:
 - **Readout** (500, clamp(52px, 9vw, 88px), 1): живое табло замера (секунды, счёт). Показатели в карточках — тот же шрифт 22–26px.
 - **Headline** (Unbounded 500, 19px): заголовок панели («План дня», «Навыки»).
 - **Title** (Onest 600, 16px): название упражнения, пункта, строки.
+- **UI / Meta** (Onest, 14px / 13px): подписи элементов управления и метаданные строк. Шкала мелких размеров: 11 · 12 · 13 · 14 · 15 · 16 · 17px, без полупикселей.
 - **Body** (Onest 400, 15px, 1.5): основной текст; пояснения не шире 62–70ch.
-- **Lead** (16.5px, ink-secondary): подзаголовок экрана.
+- **Lead** (17px, ink-secondary): подзаголовок экрана.
 - **Label** (500, 12px, 0.1em, uppercase): эйбрау и подписи панелей («КАК ВЫПОЛНЯТЬ», «АКТИВНОСТЬ»).
 - **Mono** (12–13px, tabular): счётчики, даты, единицы, номера шагов.
 
@@ -207,10 +231,10 @@ components:
 
 ## Elevation & Depth
 
-Система плоская. Глубина передаётся тоном: фон → панель → вложенная поверхность. Панели очерчены линией 1px. Единственная тень — мягкая двухслойная `--shadow` для приподнятых панелей и тоста.
+Система плоская. Глубина передаётся тоном: фон → панель → вложенная поверхность. Панели очерчены линией 1px, теней у панелей нет. Единственная тень — мягкая двухслойная `--shadow` у всплывающего тоста.
 
 ### Shadow Vocabulary
-- **Ambient lift** (`0 1px 2px rgba(19,28,38,.06), 0 6px 24px rgba(19,28,38,.06)`; в тёмной теме плотнее): только `.panel.lift` и тост.
+- **Ambient lift** (`0 1px 2px rgba(19,28,38,.06), 0 6px 24px rgba(19,28,38,.06)`; в тёмной теме плотнее): только тост.
 - **Status halo** (`0 0 0 4px <wash>`): ореол вокруг точки статуса микрофона и ИИ, когда они активны.
 
 ### Named Rules
@@ -252,6 +276,12 @@ components:
 ### Живое табло и сцена (Signature)
 Табло замера (`big-num`), кольцо таймера 220px с синей дугой, индикатор уровня из вертикальных штрихов (зелёный → охра → красный), холст графика высоты на вложенной поверхности, карточка скороговорки крупным Unbounded с пословной подсветкой: зелёный — распознано, янтарная подложка — почти, красная подложка с волнистым подчёркиванием — пропущено, синий — слово звучит сейчас.
 
+### Лампа эфира (Signature)
+Состояние панели `.on-air`: рамка 1px лампой эфира, метка «ЗАПИСЬ» (12px, 600, uppercase, 0.08em, охра) с янтарной точкой разрывает верхнюю линию рамки, как легенда. Включается автоматически, пока кнопка `.rec-btn` показывает «Стоп». Пробел запускает и останавливает запись, если фокус не в поле ввода.
+
+### План дня
+Строка плана — одна кнопка на всю ширину: кружок-отметка, название 600 + мета 13px, минуты моноширинным справа. Пояснение «зачем» и цель — только у следующего невыполненного пункта. «Начать занятие» стоит в шапке панели, а не под списком.
+
 ### ИИ-разбор
 Блок на синей подложке, смешанной с панелью, с синей линией 35% прозрачности. Заголовок с точкой статуса, текст 14.5px/1.6. Во время ожидания — пульсирующая надпись.
 
@@ -268,4 +298,5 @@ components:
 - **Don't** добавлять тени карточкам, чтобы выделить их; выделяйте тоном или линией.
 - **Don't** красить янтарным что-то, кроме записи, микрофона и мягких предупреждений.
 - **Don't** использовать Unbounded для абзацного текста и мелких подписей.
+- **Don't** ставить эйбрау-кикер над заголовком экрана: дата, неделя, фокус идут в подводку под заголовком.
 - **Don't** отвлекать во время упражнения: на сцене нет декоративных элементов и анимаций, не связанных с голосом.

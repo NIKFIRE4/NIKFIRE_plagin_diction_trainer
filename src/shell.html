@@ -4,13 +4,14 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>/*CSS*/</style>
 <div class="app">
+  <button class="skip" type="button" id="skip">К содержанию</button>
   <aside class="side">
     <button class="brand" data-go="home" aria-label="Звукоряд — на главную">
       <svg class="brand-mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="var(--ink)"/><g fill="var(--bg)"><rect x="7" y="19" width="3" height="7" rx="1.5"/><rect x="12" y="15" width="3" height="11" rx="1.5"/><rect x="17" y="11" width="3" height="15" rx="1.5"/><rect x="22" y="7" width="3" height="19" rx="1.5" fill="var(--tally)"/></g></svg>
       <span><span class="brand-name">Звукоряд</span><br><span class="brand-sub">тренажёр речи</span></span>
     </button>
     <nav class="nav" id="nav" aria-label="Разделы"></nav>
-    <div class="side-foot"><div class="streak" id="streak"></div><span class="small muted">15 минут в день</span></div>
+    <div class="side-foot"><div class="streak" id="streak"></div><span class="small muted" id="todayMin"></span></div>
   </aside>
   <div class="main">
     <header class="topbar"><div class="crumb" id="crumb"></div><button class="ai-chip" id="aichip" data-state="checking" type="button"></button><div class="mic-chip" id="micchip" data-state="off"></div></header>
